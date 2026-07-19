@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slice-red: #ab1a18;
+  --color-slice-red-deep: #b0080c;
+  --color-slice-cream: #f2dccb;
+  --color-slice-ink: #352215;
+  --color-slice-paper: #fcf4ee;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-brand: var(--font-brand-serif);
+}
+
+body {
+  background: var(--color-slice-cream);
+  color: var(--color-slice-ink);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

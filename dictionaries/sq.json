@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "title": "Slice House — Shija që mbahet mend",
+    "description": "Pica artizanale, e bërë me pasion. Porosit online nga Slice House — pa regjistrim, pa pagesë online."
+  },
+  "nav": {
+    "offers": "Ofertat",
+    "menu": "Menuja",
+    "game": "Rrota e Fatit",
+    "contact": "Kontakti",
+    "cart": "Shporta"
+  },
+  "hero": {
+    "eyebrow": "Pica artizanale, e bërë me pasion",
+    "title": "Shija që mbahet mend.",
+    "subtitle": "Përbërës të freskët çdo ditë, brumë i punuar me kujdes dhe vaj ulliri 100% natyral. Porosit online — ne bëjmë pjesën tjetër.",
+    "ctaPrimary": "Porosit Tani",
+    "ctaSecondary": "Shiko Menunë",
+    "badgeIngredients": "Përbërës të freskët çdo ditë",
+    "badgeDough": "Brumë i punuar me kujdes",
+    "badgeOil": "Vaj ulliri 100% natyral"
+  },
+  "offers": {
+    "heading": "Ofertat e Muajit",
+    "subheading": "Oferta të kufizuara në kohë — shijoji para se të mbarojnë.",
+    "empty": "Nuk ka oferta aktive për momentin. Kontrollo menunë tonë të plotë më poshtë!",
+    "addToOrder": "Shto në Porosi",
+    "until": "Deri më {date}"
+  },
+  "menu": {
+    "heading": "Menuja",
+    "subheading": "E gjithë menuja jonë, direkt këtu — jo PDF, thjesht shto dhe porosit.",
+    "categories": {
+      "pica": "Pica",
+      "pije": "Pije",
+      "shtesa": "Shtesa"
+    },
+    "addToCart": "Shto në Shportë",
+    "added": "U shtua!",
+    "extrasLabel": "Shtesa (opsionale)",
+    "quantity": "Sasia",
+    "from": "nga"
+  },
+  "wheel": {
+    "heading": "Nuk di çfarë të zgjedhësh?",
+    "subheading": "Rrotullo Rrotën e Fatit dhe le fati të zgjedhë picën tënde të radhës.",
+    "spinButton": "Rrotullo Rrotën",
+    "spinning": "Duke rrotulluar…",
+    "resultPrefix": "Fati zgjodhi:",
+    "addToOrder": "Shto në Porosi",
+    "spinAgain": "Rrotullo Përsëri"
+  },
+  "cart": {
+    "heading": "Shporta Jote",
+    "empty": "Shporta është bosh.",
+    "browseMenu": "Shiko Menunë",
+    "remove": "Hiq",
+    "extras": "Shtesa",
+    "subtotal": "Nëntotali",
+    "checkout": "Vazhdo te Porosia",
+    "continueShopping": "Vazhdo Blerjen"
+  },
+  "checkout": {
+    "heading": "Përfundo Porosinë",
+    "subheading": "Plotëso të dhënat e tua — do të të telefonojmë për konfirmim.",
+    "orderSummary": "Përmbledhja e Porosisë",
+    "fields": {
+      "fullName": "Emri i plotë",
+      "phone": "Numri i telefonit",
+      "email": "Email",
+      "address": "Adresa e dorëzimit",
+      "notes": "Shënime (opsionale)"
+    },
+    "placeholders": {
+      "fullName": "p.sh. Arben Krasniqi",
+      "phone": "p.sh. 044 123 456",
+      "email": "p.sh. arben@email.com",
+      "address": "Rruga, numri, qyteti",
+      "notes": "Ndonjë kërkesë e veçantë?"
+    },
+    "useLocation": "Përdor lokacionin tim",
+    "locating": "Duke gjetur lokacionin…",
+    "locationSet": "Lokacioni u caktua ✓",
+    "locationError": "Nuk u gjend lokacioni. Shkruaj adresën manualisht.",
+    "previewRoute": "Shiko rrugën nga ne te ti",
+    "submit": "Dërgo Porosinë",
+    "submitting": "Duke dërguar…",
+    "submitError": "Diçka shkoi keq. Provo përsëri ose na telefono direkt.",
+    "success": {
+      "title": "Porosia u pranua!",
+      "message": "Faleminderit! Do të të telefonojmë shpejt për të konfirmuar porosinë.",
+      "callUs": "Nëse ke pyetje, na telefono direkt:"
+    },
+    "errors": {
+      "fullName": "Shkruaj emrin e plotë",
+      "phone": "Shkruaj një numër telefoni të vlefshëm",
+      "email": "Shkruaj një email të vlefshëm",
+      "address": "Shkruaj adresën e dorëzimit",
+      "cartEmpty": "Shporta është bosh"
+    }
+  },
+  "footer": {
+    "hours": "Orari",
+    "hoursValue": "17:00 – 23:00",
+    "callUs": "Na Telefono",
+    "address": "Adresa",
+    "rights": "Të gjitha të drejtat e rezervuara."
+  },
+  "common": {
+    "currency": "€",
+    "orderNow": "Porosit Tani",
+    "languageToggle": "English"
+  },
+  "email": {
+    "owner": {
+      "subject": "Porosi e re nga {name}",
+      "heading": "Porosi e Re",
+      "customer": "Klienti",
+      "phone": "Telefoni",
+      "email": "Email",
+      "address": "Adresa",
+      "items": "Artikujt",
+      "total": "Totali",
+      "notes": "Shënime",
+      "confirmButton": "Konfirmo & Njofto Klientin",
+      "confirmHint": "Telefono klientin për konfirmim, pastaj kliko butonin lart për t'i dërguar email konfirmimi."
+    },
+    "customer": {
+      "subject": "Porosia jote nga Slice House u konfirmua!",
+      "heading": "Porosia jote u konfirmua!",
+      "greeting": "Përshëndetje {name},",
+      "message": "Porosia jote është duke u përgatitur me kujdes. Faleminderit që zgjodhe Slice House!",
+      "items": "Artikujt",
+      "total": "Totali",
+      "address": "Dorëzimi te",
+      "callUs": "Pyetje? Na telefono:",
+      "signature": "Shija që mbahet mend."
+    },
+    "confirmScreen": {
+      "successTitle": "U konfirmua!",
+      "successBody": "Email konfirmimi u dërgua te {name} ({email}).",
+      "errorTitle": "Lidhja nuk është e vlefshme",
+      "errorExpired": "Kjo lidhje konfirmimi ka skaduar.",
+      "errorInvalid": "Kjo lidhje konfirmimi nuk është e vlefshme."
+    }
+  }
+}

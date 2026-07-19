@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "title": "Slice House — The Taste That's Remembered",
+    "description": "Handmade artisanal pizza, made with passion. Order online from Slice House — no account, no online payment."
+  },
+  "nav": {
+    "offers": "Offers",
+    "menu": "Menu",
+    "game": "Lucky Wheel",
+    "contact": "Contact",
+    "cart": "Cart"
+  },
+  "hero": {
+    "eyebrow": "Artisanal pizza, made with passion",
+    "title": "The taste that's remembered.",
+    "subtitle": "Fresh ingredients every day, carefully worked dough, and 100% natural olive oil. Order online — we'll handle the rest.",
+    "ctaPrimary": "Order Now",
+    "ctaSecondary": "View Menu",
+    "badgeIngredients": "Fresh ingredients daily",
+    "badgeDough": "Carefully handmade dough",
+    "badgeOil": "100% natural olive oil"
+  },
+  "offers": {
+    "heading": "This Month's Offers",
+    "subheading": "Limited-time deals — grab them before they're gone.",
+    "empty": "No active offers right now. Check out our full menu below!",
+    "addToOrder": "Add to Order",
+    "until": "Until {date}"
+  },
+  "menu": {
+    "heading": "Menu",
+    "subheading": "Our full menu, right here — no PDF, just add and order.",
+    "categories": {
+      "pica": "Pizza",
+      "pije": "Drinks",
+      "shtesa": "Extras"
+    },
+    "addToCart": "Add to Cart",
+    "added": "Added!",
+    "extrasLabel": "Extras (optional)",
+    "quantity": "Quantity",
+    "from": "from"
+  },
+  "wheel": {
+    "heading": "Can't decide what to order?",
+    "subheading": "Spin the Lucky Wheel and let fate pick your next pizza.",
+    "spinButton": "Spin the Wheel",
+    "spinning": "Spinning…",
+    "resultPrefix": "Fate picked:",
+    "addToOrder": "Add to Order",
+    "spinAgain": "Spin Again"
+  },
+  "cart": {
+    "heading": "Your Cart",
+    "empty": "Your cart is empty.",
+    "browseMenu": "Browse Menu",
+    "remove": "Remove",
+    "extras": "Extras",
+    "subtotal": "Subtotal",
+    "checkout": "Continue to Checkout",
+    "continueShopping": "Continue Shopping"
+  },
+  "checkout": {
+    "heading": "Complete Your Order",
+    "subheading": "Fill in your details — we'll call you to confirm.",
+    "orderSummary": "Order Summary",
+    "fields": {
+      "fullName": "Full name",
+      "phone": "Phone number",
+      "email": "Email",
+      "address": "Delivery address",
+      "notes": "Notes (optional)"
+    },
+    "placeholders": {
+      "fullName": "e.g. Jane Doe",
+      "phone": "e.g. 044 123 456",
+      "email": "e.g. jane@email.com",
+      "address": "Street, number, city",
+      "notes": "Any special requests?"
+    },
+    "useLocation": "Use my location",
+    "locating": "Finding your location…",
+    "locationSet": "Location set ✓",
+    "locationError": "Couldn't find your location. Please type your address instead.",
+    "previewRoute": "Preview the route from us to you",
+    "submit": "Send Order",
+    "submitting": "Sending…",
+    "submitError": "Something went wrong. Try again or call us directly.",
+    "success": {
+      "title": "Order received!",
+      "message": "Thank you! We'll call you shortly to confirm your order.",
+      "callUs": "Questions? Call us directly:"
+    },
+    "errors": {
+      "fullName": "Please enter your full name",
+      "phone": "Please enter a valid phone number",
+      "email": "Please enter a valid email",
+      "address": "Please enter a delivery address",
+      "cartEmpty": "Your cart is empty"
+    }
+  },
+  "footer": {
+    "hours": "Hours",
+    "hoursValue": "17:00 – 23:00",
+    "callUs": "Call Us",
+    "address": "Address",
+    "rights": "All rights reserved."
+  },
+  "common": {
+    "currency": "€",
+    "orderNow": "Order Now",
+    "languageToggle": "Shqip"
+  },
+  "email": {
+    "owner": {
+      "subject": "New order from {name}",
+      "heading": "New Order",
+      "customer": "Customer",
+      "phone": "Phone",
+      "email": "Email",
+      "address": "Address",
+      "items": "Items",
+      "total": "Total",
+      "notes": "Notes",
+      "confirmButton": "Confirm & Notify Customer",
+      "confirmHint": "Call the customer to confirm, then click the button above to email them a confirmation."
+    },
+    "customer": {
+      "subject": "Your Slice House order is confirmed!",
+      "heading": "Your order is confirmed!",
+      "greeting": "Hi {name},",
+      "message": "Your order is being carefully prepared. Thanks for choosing Slice House!",
+      "items": "Items",
+      "total": "Total",
+      "address": "Delivering to",
+      "callUs": "Questions? Call us:",
+      "signature": "The taste that's remembered."
+    },
+    "confirmScreen": {
+      "successTitle": "Confirmed!",
+      "successBody": "Confirmation email sent to {name} ({email}).",
+      "errorTitle": "Invalid link",
+      "errorExpired": "This confirmation link has expired.",
+      "errorInvalid": "This confirmation link is invalid."
+    }
+  }
+}
