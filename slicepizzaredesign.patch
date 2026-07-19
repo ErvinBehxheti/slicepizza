@@ -1,0 +1,3936 @@
+From 53cb66a053be27f59980f628126d9ccf89d19608 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 19 Jul 2026 12:31:15 +0000
+Subject: [PATCH] Redesign the whole site with an iOS-style look and kiosk
+ ordering
+
+- Add a real SVG logo (app-icon tile + slice glyph) to header/footer
+- Rebuild the hero: centered composition with hand-drawn pizza art
+  (pulled slice, scroll rotation, floating garnish); drop the
+  text-left/placeholder-right layout and the bullet-point badges
+- Replace the menu cards with kiosk-style ordering: segmented category
+  control, product tiles with food illustrations, and an iOS bottom
+  sheet for extras + quantity
+- Shrink monthly offers into a compact horizontal card strip
+- Rebuild the lucky wheel in SVG with a working spin (transitionend
+  instead of a timeout) and a side-by-side result panel
+- Add a Find Us section with an embedded map, tap-to-call and hours
+- Checkout: "use my location" now reverse-geocodes and fills the
+  address input; route preview renders inline under the input instead
+  of opening a new tab; iOS grouped-form styling
+- Move the shop to 37-5 Mosine Kokalari, Mitrovica e Veriut
+  (42.874094, 20.858669)
+- Trim overselling copy in both locales; add on-scroll reveal
+  animations (reduced-motion aware); switch next/image priority to
+  the Next 16 preload prop
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01LQSh1phQBiMcrk6FKaJYeb
+---
+ app/[lang]/layout.tsx                     |  12 +-
+ app/[lang]/page.tsx                       |   4 +-
+ app/globals.css                           | 152 +++++++++++++-
+ app/not-found.tsx                         |  20 +-
+ components/cart/CartBadge.tsx             |  16 +-
+ components/cart/CartView.tsx              | 114 ++++++-----
+ components/checkout/CheckoutForm.tsx      | 110 +++++-----
+ components/checkout/DirectionsLink.tsx    |  29 ---
+ components/checkout/GeolocationButton.tsx |  55 ++++-
+ components/checkout/RoutePreview.tsx      |  62 ++++++
+ components/home/ContactSection.tsx        | 125 ++++++++++++
+ components/home/HeroPizza.tsx             | 194 ++++++++++++++++++
+ components/home/HeroSection.tsx           |  97 ++++-----
+ components/home/MenuSection.tsx           |  25 +--
+ components/home/OfferCard.tsx             |  40 ++--
+ components/home/OffersSection.tsx         |  28 ++-
+ components/home/PizzaWheel.tsx            | 236 +++++++++++++---------
+ components/language/LanguageToggle.tsx    |   5 +-
+ components/layout/Footer.tsx              |  74 +++----
+ components/layout/Header.tsx              |  22 +-
+ components/layout/StickyOrderBar.tsx      |  26 ++-
+ components/menu/AddToCartControl.tsx      | 103 ----------
+ components/menu/ItemSheet.tsx             | 205 +++++++++++++++++++
+ components/menu/MenuCategoryBlock.tsx     |  27 ---
+ components/menu/MenuItemCard.tsx          |  42 ----
+ components/menu/MenuKiosk.tsx             | 136 +++++++++++++
+ components/ui/FoodArt.tsx                 | 181 +++++++++++++++++
+ components/ui/ImageSlot.tsx               |  29 +--
+ components/ui/Logo.tsx                    |  41 ++++
+ components/ui/PizzaPlaceholderArt.tsx     |  88 --------
+ components/ui/Reveal.tsx                  |  50 +++++
+ dictionaries/en.json                      |  83 ++++----
+ dictionaries/sq.json                      |  79 ++++----
+ lib/config.ts                             |   8 +-
+ lib/directions.ts                         |  19 --
+ package-lock.json                         | 162 +++++----------
+ package.json                              |   1 +
+ 37 files changed, 1776 insertions(+), 924 deletions(-)
+ delete mode 100644 components/checkout/DirectionsLink.tsx
+ create mode 100644 components/checkout/RoutePreview.tsx
+ create mode 100644 components/home/ContactSection.tsx
+ create mode 100644 components/home/HeroPizza.tsx
+ delete mode 100644 components/menu/AddToCartControl.tsx
+ create mode 100644 components/menu/ItemSheet.tsx
+ delete mode 100644 components/menu/MenuCategoryBlock.tsx
+ delete mode 100644 components/menu/MenuItemCard.tsx
+ create mode 100644 components/menu/MenuKiosk.tsx
+ create mode 100644 components/ui/FoodArt.tsx
+ create mode 100644 components/ui/Logo.tsx
+ delete mode 100644 components/ui/PizzaPlaceholderArt.tsx
+ create mode 100644 components/ui/Reveal.tsx
+ delete mode 100644 lib/directions.ts
+
+diff --git a/app/[lang]/layout.tsx b/app/[lang]/layout.tsx
+index e2140bb..75392ac 100644
+--- a/app/[lang]/layout.tsx
++++ b/app/[lang]/layout.tsx
+@@ -1,5 +1,5 @@
+ import type { Metadata } from "next";
+-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
++import { Geist, Geist_Mono } from "next/font/google";
+ import { notFound } from "next/navigation";
+ import "@/app/globals.css";
+ import { hasLocale, getDictionary } from "@/app/[lang]/dictionaries";
+@@ -19,12 +19,6 @@ const geistMono = Geist_Mono({
+   subsets: ["latin"],
+ });
+ 
+-const fraunces = Fraunces({
+-  variable: "--font-brand-serif",
+-  subsets: ["latin", "latin-ext"],
+-  style: ["italic", "normal"],
+-});
+-
+ export async function generateStaticParams() {
+   return SUPPORTED_LOCALES.map((lang) => ({ lang }));
+ }
+@@ -52,12 +46,12 @@ export default async function RootLayout({
+   return (
+     <html lang={lang}>
+       <body
+-        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-screen flex-col bg-slice-cream font-sans text-slice-ink antialiased`}
++        className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col bg-slice-paper font-sans text-slice-ink antialiased`}
+       >
+         <CartProvider>
+           <Header lang={lang} dict={dict} />
+           <main className="flex-1">{children}</main>
+-          <Footer dict={dict} />
++          <Footer lang={lang} dict={dict} />
+           <StickyOrderBar lang={lang} label={dict.cart.checkout} />
+         </CartProvider>
+       </body>
+diff --git a/app/[lang]/page.tsx b/app/[lang]/page.tsx
+index b6532f9..3e5eee4 100644
+--- a/app/[lang]/page.tsx
++++ b/app/[lang]/page.tsx
+@@ -4,6 +4,7 @@ import { HeroSection } from "@/components/home/HeroSection";
+ import { OffersSection } from "@/components/home/OffersSection";
+ import { MenuSection } from "@/components/home/MenuSection";
+ import { PizzaWheel } from "@/components/home/PizzaWheel";
++import { ContactSection } from "@/components/home/ContactSection";
+ 
+ export const revalidate = 3600;
+ 
+@@ -15,9 +16,10 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
+   return (
+     <>
+       <HeroSection lang={lang} dict={dict} />
+-      <OffersSection lang={lang} dict={dict} />
+       <MenuSection lang={lang} dict={dict} />
++      <OffersSection lang={lang} dict={dict} />
+       <PizzaWheel lang={lang} dict={dict} />
++      <ContactSection lang={lang} dict={dict} />
+     </>
+   );
+ }
+diff --git a/app/globals.css b/app/globals.css
+index 7260362..13a33c3 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6,19 +6,167 @@
+   --color-slice-cream: #f2dccb;
+   --color-slice-ink: #352215;
+   --color-slice-paper: #fcf4ee;
++  --color-slice-card: #fffdfb;
+ 
+   --font-sans: var(--font-geist-sans);
+   --font-mono: var(--font-geist-mono);
+-  --font-brand: var(--font-brand-serif);
++
++  /* Apple's standard spring-ish curves */
++  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
++  --ease-ios-bounce: cubic-bezier(0.34, 1.4, 0.64, 1);
++
++  --shadow-card: 0 1px 2px rgb(53 34 21 / 0.04), 0 6px 24px rgb(53 34 21 / 0.06);
++  --shadow-float: 0 8px 16px rgb(53 34 21 / 0.08), 0 20px 48px rgb(53 34 21 / 0.14);
++
++  --animate-sheet-up: sheet-up 0.42s var(--ease-ios) both;
++  --animate-sheet-pop: sheet-pop 0.32s var(--ease-ios) both;
++  --animate-backdrop: backdrop-in 0.3s ease-out both;
++  --animate-pop: pop 0.4s var(--ease-ios-bounce) both;
++  --animate-grid-in: grid-in 0.35s var(--ease-ios) both;
++  --animate-bar-up: bar-up 0.45s var(--ease-ios) both;
++}
++
++html {
++  scroll-behavior: smooth;
++  scroll-padding-top: 5.5rem;
++  -webkit-tap-highlight-color: transparent;
+ }
+ 
+ body {
+-  background: var(--color-slice-cream);
++  background: var(--color-slice-paper);
+   color: var(--color-slice-ink);
++  font-feature-settings: "cv11";
++}
++
++::selection {
++  background: color-mix(in srgb, var(--color-slice-red) 18%, transparent);
++}
++
++@keyframes sheet-up {
++  from {
++    transform: translateY(100%);
++  }
++  to {
++    transform: translateY(0);
++  }
++}
++
++@keyframes sheet-pop {
++  from {
++    opacity: 0;
++    transform: translateY(14px) scale(0.96);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0) scale(1);
++  }
++}
++
++@keyframes backdrop-in {
++  from {
++    opacity: 0;
++  }
++  to {
++    opacity: 1;
++  }
++}
++
++@keyframes pop {
++  from {
++    opacity: 0;
++    transform: scale(0.92);
++  }
++  to {
++    opacity: 1;
++    transform: scale(1);
++  }
++}
++
++@keyframes grid-in {
++  from {
++    opacity: 0;
++    transform: translateY(10px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++@keyframes bar-up {
++  from {
++    opacity: 0;
++    transform: translateY(120%);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++@keyframes drift {
++  from {
++    transform: translateY(-7px) rotate(-3deg);
++  }
++  to {
++    transform: translateY(7px) rotate(3deg);
++  }
++}
++
++/* On-scroll reveal — toggled by <Reveal> via IntersectionObserver. */
++.reveal {
++  opacity: 0;
++  transform: translateY(26px);
++  transition:
++    opacity 0.7s var(--ease-ios),
++    transform 0.7s var(--ease-ios);
++  transition-delay: var(--reveal-delay, 0s);
++}
++
++.reveal-in {
++  opacity: 1;
++  transform: none;
++}
++
++.drift {
++  animation: drift 5s ease-in-out infinite alternate;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  html {
++    scroll-behavior: auto;
++  }
++  .reveal {
++    opacity: 1;
++    transform: none;
++    transition: none;
++  }
++  .drift {
++    animation: none;
++  }
++  *,
++  ::before,
++  ::after {
++    animation-duration: 0.01ms !important;
++    transition-duration: 0.01ms !important;
++  }
+ }
+ 
+ @layer utilities {
+   .text-balance {
+     text-wrap: balance;
+   }
++  .no-scrollbar {
++    scrollbar-width: none;
++  }
++  .no-scrollbar::-webkit-scrollbar {
++    display: none;
++  }
++  /* iOS-style hairline border */
++  .hairline {
++    box-shadow: inset 0 0 0 1px rgb(53 34 21 / 0.08);
++  }
++  .pb-safe {
++    padding-bottom: env(safe-area-inset-bottom);
++  }
+ }
+diff --git a/app/not-found.tsx b/app/not-found.tsx
+index 8718a1f..2d792ac 100644
+--- a/app/not-found.tsx
++++ b/app/not-found.tsx
+@@ -3,16 +3,24 @@ import Link from "next/link";
+ export default function NotFound() {
+   return (
+     <html lang="en">
+-      <body className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F2DCCB] px-6 text-center text-[#352215]">
+-        <p className="text-sm font-semibold uppercase tracking-widest text-[#AB1A18]">
++      <body className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#FCF4EE] px-6 text-center text-[#352215]">
++        <p className="text-sm font-bold uppercase tracking-widest text-[#AB1A18]">
+           404
+         </p>
+-        <h1 className="text-2xl font-semibold">Page not found / Faqja nuk u gjet</h1>
+-        <div className="flex gap-4 text-sm font-medium">
+-          <Link href="/sq" className="underline hover:text-[#AB1A18]">
++        <h1 className="text-2xl font-bold tracking-tight">
++          Page not found / Faqja nuk u gjet
++        </h1>
++        <div className="mt-2 flex gap-3 text-sm font-semibold">
++          <Link
++            href="/sq"
++            className="rounded-full bg-[#AB1A18] px-5 py-2.5 text-[#FCF4EE]"
++          >
+             Shqip
+           </Link>
+-          <Link href="/en" className="underline hover:text-[#AB1A18]">
++          <Link
++            href="/en"
++            className="rounded-full bg-[#352215]/[0.06] px-5 py-2.5"
++          >
+             English
+           </Link>
+         </div>
+diff --git a/components/cart/CartBadge.tsx b/components/cart/CartBadge.tsx
+index 726ca41..3ab2ac9 100644
+--- a/components/cart/CartBadge.tsx
++++ b/components/cart/CartBadge.tsx
+@@ -11,23 +11,23 @@ export function CartBadge({ lang, label }: { lang: string; label: string }) {
+     <Link
+       href={`/${lang}/cart`}
+       aria-label={label}
+-      className="relative flex items-center gap-2 rounded-full bg-slice-red px-4 py-2 text-sm font-semibold text-slice-paper transition-colors hover:bg-slice-red-deep"
++      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-slice-ink/[0.06] text-slice-ink transition-colors hover:bg-slice-ink/10"
+     >
+       <svg
+         viewBox="0 0 24 24"
+-        className="h-4 w-4"
++        className="h-[18px] w-[18px]"
+         fill="none"
+         stroke="currentColor"
+-        strokeWidth="2"
++        strokeWidth="1.8"
++        strokeLinecap="round"
++        strokeLinejoin="round"
+         aria-hidden="true"
+       >
+-        <circle cx="9" cy="21" r="1" />
+-        <circle cx="20" cy="21" r="1" />
+-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
++        <path d="M6 8h12l1.2 12.2a1.5 1.5 0 0 1-1.5 1.8H6.3a1.5 1.5 0 0 1-1.5-1.8Z" />
++        <path d="M9 10V6a3 3 0 0 1 6 0v4" />
+       </svg>
+-      <span className="hidden sm:inline">{label}</span>
+       {showCount && (
+-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slice-cream px-1 text-xs font-bold text-slice-ink">
++        <span className="animate-pop absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slice-red px-1 text-[10px] font-bold text-slice-paper">
+           {itemCount}
+         </span>
+       )}
+diff --git a/components/cart/CartView.tsx b/components/cart/CartView.tsx
+index 4edebc6..28de5da 100644
+--- a/components/cart/CartView.tsx
++++ b/components/cart/CartView.tsx
+@@ -14,13 +14,13 @@ export function CartView({ lang, dict }: { lang: Locale; dict: Dictionary }) {
+   if (items.length === 0) {
+     return (
+       <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
+-        <h1 className="font-brand text-3xl italic text-slice-ink">
++        <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
+           {dict.cart.heading}
+         </h1>
+         <p className="mt-3 text-slice-ink/60">{dict.cart.empty}</p>
+         <Link
+           href={`/${lang}#menu`}
+-          className="mt-6 inline-block rounded-full bg-slice-red px-6 py-3 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
++          className="mt-6 inline-flex h-12 items-center rounded-full bg-slice-red px-7 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep"
+         >
+           {dict.cart.browseMenu}
+         </Link>
+@@ -32,89 +32,91 @@ export function CartView({ lang, dict }: { lang: Locale; dict: Dictionary }) {
+   const total = computeCartTotal(resolved);
+ 
+   return (
+-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
+-      <h1 className="font-brand text-3xl italic text-slice-ink">
++    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
++      <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
+         {dict.cart.heading}
+       </h1>
+ 
+-      <ul className="mt-8 space-y-4">
++      <ul className="hairline mt-6 divide-y divide-slice-ink/[0.06] rounded-[28px] bg-slice-card shadow-card">
+         {items.map((line, idx) => {
+           const info = resolved[idx];
+           if (!info) return null;
+           return (
+-            <li
+-              key={line.lineId}
+-              className="flex items-start justify-between gap-4 rounded-2xl border border-slice-ink/10 bg-slice-paper p-4"
+-            >
+-              <div>
+-                <p className="font-semibold text-slice-ink">{info.name}</p>
++            <li key={line.lineId} className="flex items-center gap-4 p-4 sm:px-5">
++              <div className="min-w-0 flex-1">
++                <p className="text-[15px] font-semibold text-slice-ink">
++                  {info.name}
++                </p>
+                 {info.extraNames.length > 0 && (
+-                  <p className="mt-0.5 text-xs text-slice-ink/60">
+-                    {dict.cart.extras}: {info.extraNames.join(", ")}
++                  <p className="mt-0.5 text-xs text-slice-ink/50">
++                    + {info.extraNames.join(", ")}
+                   </p>
+                 )}
+-                <div className="mt-2 flex items-center gap-2">
+-                  <div className="flex items-center rounded-full border border-slice-ink/15">
+-                    <button
+-                      type="button"
+-                      aria-label="-"
+-                      onClick={() =>
+-                        updateQuantity(line.lineId, line.quantity - 1)
+-                      }
+-                      className="px-2.5 py-1 text-slice-ink"
+-                    >
+-                      −
+-                    </button>
+-                    <span className="w-6 text-center text-sm font-semibold">
+-                      {line.quantity}
+-                    </span>
+-                    <button
+-                      type="button"
+-                      aria-label="+"
+-                      onClick={() =>
+-                        updateQuantity(line.lineId, line.quantity + 1)
+-                      }
+-                      className="px-2.5 py-1 text-slice-ink"
+-                    >
+-                      +
+-                    </button>
+-                  </div>
+-                  <button
+-                    type="button"
+-                    onClick={() => removeItem(line.lineId)}
+-                    className="text-xs font-medium text-slice-ink/50 underline hover:text-slice-red"
+-                  >
+-                    {dict.cart.remove}
+-                  </button>
+-                </div>
++                <p className="mt-1 text-sm font-bold tabular-nums text-slice-ink/70">
++                  {formatPrice(info.lineTotal)}
++                </p>
+               </div>
+-              <span className="whitespace-nowrap font-bold text-slice-red">
+-                {formatPrice(info.lineTotal)}
+-              </span>
++
++              <div className="flex items-center gap-2.5 rounded-full bg-slice-ink/[0.05] px-1 py-1">
++                <button
++                  type="button"
++                  aria-label="−"
++                  onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
++                  className="flex h-7 w-7 items-center justify-center rounded-full text-slice-ink transition hover:bg-slice-card active:scale-90"
++                >
++                  <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
++                    <path d="M4 10h12" />
++                  </svg>
++                </button>
++                <span className="w-4 text-center text-sm font-bold tabular-nums text-slice-ink">
++                  {line.quantity}
++                </span>
++                <button
++                  type="button"
++                  aria-label="+"
++                  onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
++                  className="flex h-7 w-7 items-center justify-center rounded-full text-slice-ink transition hover:bg-slice-card active:scale-90"
++                >
++                  <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
++                    <path d="M10 4v12M4 10h12" />
++                  </svg>
++                </button>
++              </div>
++
++              <button
++                type="button"
++                aria-label={dict.cart.remove}
++                onClick={() => removeItem(line.lineId)}
++                className="flex h-8 w-8 items-center justify-center rounded-full text-slice-ink/40 transition hover:bg-slice-red/10 hover:text-slice-red"
++              >
++                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
++                </svg>
++              </button>
+             </li>
+           );
+         })}
+       </ul>
+ 
+-      <div className="mt-8 flex items-center justify-between border-t border-slice-ink/10 pt-4">
+-        <span className="font-semibold text-slice-ink">
++      <div className="mt-6 flex items-center justify-between px-1">
++        <span className="text-[15px] font-semibold text-slice-ink">
+           {dict.cart.subtotal}
+         </span>
+-        <span className="text-xl font-bold text-slice-red">
++        <span className="text-xl font-bold tabular-nums text-slice-ink">
+           {formatPrice(total)}
+         </span>
+       </div>
+ 
+-      <div className="mt-6 flex flex-col gap-3 sm:flex-row-reverse">
++      <div className="mt-5 flex flex-col gap-3 sm:flex-row-reverse">
+         <Link
+           href={`/${lang}/checkout`}
+-          className="flex-1 rounded-full bg-slice-red px-6 py-3 text-center text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
++          className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-slice-red text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.98]"
+         >
+           {dict.cart.checkout}
+         </Link>
+         <Link
+           href={`/${lang}#menu`}
+-          className="flex-1 rounded-full border border-slice-ink/20 px-6 py-3 text-center text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
++          className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-slice-ink/[0.06] text-[15px] font-semibold text-slice-ink transition hover:bg-slice-ink/10 active:scale-[0.98]"
+         >
+           {dict.cart.continueShopping}
+         </Link>
+diff --git a/components/checkout/CheckoutForm.tsx b/components/checkout/CheckoutForm.tsx
+index 1569661..35c755a 100644
+--- a/components/checkout/CheckoutForm.tsx
++++ b/components/checkout/CheckoutForm.tsx
+@@ -8,12 +8,17 @@ import { SHOP } from "@/lib/config";
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+ import { GeolocationButton } from "@/components/checkout/GeolocationButton";
+-import { DirectionsLink } from "@/components/checkout/DirectionsLink";
++import { RoutePreview } from "@/components/checkout/RoutePreview";
+ 
+ type FieldErrors = Partial<
+   Record<"fullName" | "phone" | "email" | "address", string>
+ >;
+ 
++const inputClass =
++  "mt-1.5 h-11 w-full rounded-xl border border-transparent bg-slice-ink/[0.045] px-4 text-[15px] text-slice-ink outline-none transition placeholder:text-slice-ink/35 focus:border-slice-red/50 focus:bg-slice-card";
++
++const labelClass = "block text-[13px] font-semibold text-slice-ink/70";
++
+ export function CheckoutForm({
+   lang,
+   dict,
+@@ -40,15 +45,15 @@ export function CheckoutForm({
+   if (success) {
+     return (
+       <div className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
+-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slice-red text-slice-paper">
+-          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5">
++        <div className="animate-pop mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slice-red text-slice-paper">
++          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+             <path d="M5 13l4 4L19 7" />
+           </svg>
+         </div>
+-        <h1 className="mt-6 font-brand text-3xl italic text-slice-ink">
++        <h1 className="mt-6 text-3xl font-bold tracking-tight text-slice-ink">
+           {dict.checkout.success.title}
+         </h1>
+-        <p className="mt-3 text-slice-ink/70">{dict.checkout.success.message}</p>
++        <p className="mt-3 text-slice-ink/60">{dict.checkout.success.message}</p>
+         <p className="mt-6 text-sm text-slice-ink/60">
+           {dict.checkout.success.callUs}{" "}
+           <a href={SHOP.phoneHref} className="font-semibold text-slice-red">
+@@ -57,7 +62,7 @@ export function CheckoutForm({
+         </p>
+         <Link
+           href={`/${lang}`}
+-          className="mt-8 inline-block rounded-full border border-slice-ink/20 px-6 py-3 text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
++          className="mt-8 inline-flex h-12 items-center rounded-full bg-slice-ink/[0.06] px-7 text-[15px] font-semibold text-slice-ink transition hover:bg-slice-ink/10"
+         >
+           {dict.common.orderNow}
+         </Link>
+@@ -68,13 +73,13 @@ export function CheckoutForm({
+   if (items.length === 0) {
+     return (
+       <div className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
+-        <h1 className="font-brand text-3xl italic text-slice-ink">
++        <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
+           {dict.cart.heading}
+         </h1>
+         <p className="mt-3 text-slice-ink/60">{dict.cart.empty}</p>
+         <Link
+           href={`/${lang}#menu`}
+-          className="mt-6 inline-block rounded-full bg-slice-red px-6 py-3 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
++          className="mt-6 inline-flex h-12 items-center rounded-full bg-slice-red px-7 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep"
+         >
+           {dict.cart.browseMenu}
+         </Link>
+@@ -135,14 +140,20 @@ export function CheckoutForm({
+   }
+ 
+   return (
+-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+-      <h1 className="font-brand text-3xl italic text-slice-ink">
++    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
++      <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
+         {dict.checkout.heading}
+       </h1>
+-      <p className="mt-2 text-slice-ink/70">{dict.checkout.subheading}</p>
++      <p className="mt-1.5 text-[15px] text-slice-ink/60">
++        {dict.checkout.subheading}
++      </p>
+ 
+-      <div className="mt-8 grid gap-10 md:grid-cols-[1fr_320px]">
+-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
++      <div className="mt-8 grid gap-8 md:grid-cols-[1fr_320px]">
++        <form
++          onSubmit={handleSubmit}
++          noValidate
++          className="hairline space-y-5 rounded-[28px] bg-slice-card p-5 shadow-card sm:p-6"
++        >
+           <input
+             type="text"
+             name="companyWebsite"
+@@ -155,7 +166,7 @@ export function CheckoutForm({
+           />
+ 
+           <div>
+-            <label className="block text-sm font-semibold text-slice-ink">
++            <label className={labelClass}>
+               {dict.checkout.fields.fullName}
+             </label>
+             <input
+@@ -163,16 +174,17 @@ export function CheckoutForm({
+               value={fullName}
+               onChange={(e) => setFullName(e.target.value)}
+               placeholder={dict.checkout.placeholders.fullName}
+-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
++              autoComplete="name"
++              className={inputClass}
+             />
+             {errors.fullName && (
+-              <p className="mt-1 text-xs text-slice-red">{errors.fullName}</p>
++              <p className="mt-1 text-xs font-medium text-slice-red">{errors.fullName}</p>
+             )}
+           </div>
+ 
+           <div className="grid gap-5 sm:grid-cols-2">
+             <div>
+-              <label className="block text-sm font-semibold text-slice-ink">
++              <label className={labelClass}>
+                 {dict.checkout.fields.phone}
+               </label>
+               <input
+@@ -180,14 +192,15 @@ export function CheckoutForm({
+                 value={phone}
+                 onChange={(e) => setPhone(e.target.value)}
+                 placeholder={dict.checkout.placeholders.phone}
+-                className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
++                autoComplete="tel"
++                className={inputClass}
+               />
+               {errors.phone && (
+-                <p className="mt-1 text-xs text-slice-red">{errors.phone}</p>
++                <p className="mt-1 text-xs font-medium text-slice-red">{errors.phone}</p>
+               )}
+             </div>
+             <div>
+-              <label className="block text-sm font-semibold text-slice-ink">
++              <label className={labelClass}>
+                 {dict.checkout.fields.email}
+               </label>
+               <input
+@@ -195,22 +208,28 @@ export function CheckoutForm({
+                 value={email}
+                 onChange={(e) => setEmail(e.target.value)}
+                 placeholder={dict.checkout.placeholders.email}
+-                className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
++                autoComplete="email"
++                className={inputClass}
+               />
+               {errors.email && (
+-                <p className="mt-1 text-xs text-slice-red">{errors.email}</p>
++                <p className="mt-1 text-xs font-medium text-slice-red">{errors.email}</p>
+               )}
+             </div>
+           </div>
+ 
+           <div>
+-            <div className="flex items-center justify-between gap-2">
+-              <label className="block text-sm font-semibold text-slice-ink">
++            <div className="flex items-end justify-between gap-2">
++              <label className={labelClass}>
+                 {dict.checkout.fields.address}
+               </label>
+               <GeolocationButton
++                lang={lang}
+                 dict={dict}
+-                onLocated={(lat, lng) => setCoords({ lat, lng })}
++                onLocated={(location, locatedAddress) => {
++                  setCoords(location);
++                  setAddress(locatedAddress);
++                  setErrors((prev) => ({ ...prev, address: undefined }));
++                }}
+               />
+             </div>
+             <input
+@@ -218,21 +237,20 @@ export function CheckoutForm({
+               value={address}
+               onChange={(e) => setAddress(e.target.value)}
+               placeholder={dict.checkout.placeholders.address}
+-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
++              autoComplete="street-address"
++              className={inputClass}
+             />
+             {errors.address && (
+-              <p className="mt-1 text-xs text-slice-red">{errors.address}</p>
++              <p className="mt-1 text-xs font-medium text-slice-red">{errors.address}</p>
+             )}
+-            <div className="mt-2">
+-              <DirectionsLink
+-                dict={dict}
+-                destination={coords ?? (address.trim() || null)}
+-              />
+-            </div>
++            <RoutePreview
++              dict={dict}
++              destination={coords ?? (address.trim().length >= 4 ? address.trim() : null)}
++            />
+           </div>
+ 
+           <div>
+-            <label className="block text-sm font-semibold text-slice-ink">
++            <label className={labelClass}>
+               {dict.checkout.fields.notes}
+             </label>
+             <textarea
+@@ -240,12 +258,12 @@ export function CheckoutForm({
+               onChange={(e) => setNotes(e.target.value)}
+               placeholder={dict.checkout.placeholders.notes}
+               rows={3}
+-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
++              className="mt-1.5 w-full rounded-xl border border-transparent bg-slice-ink/[0.045] px-4 py-2.5 text-[15px] text-slice-ink outline-none transition placeholder:text-slice-ink/35 focus:border-slice-red/50 focus:bg-slice-card"
+             />
+           </div>
+ 
+           {submitError && (
+-            <p className="rounded-xl bg-slice-red/10 px-4 py-3 text-sm text-slice-red">
++            <p className="rounded-xl bg-slice-red/10 px-4 py-3 text-sm font-medium text-slice-red">
+               {dict.checkout.submitError}
+             </p>
+           )}
+@@ -253,36 +271,36 @@ export function CheckoutForm({
+           <button
+             type="submit"
+             disabled={submitting}
+-            className="w-full rounded-full bg-slice-red px-6 py-3.5 text-sm font-bold text-slice-paper shadow-lg shadow-slice-red/20 transition-colors hover:bg-slice-red-deep disabled:opacity-60"
++            className="h-12 w-full rounded-2xl bg-slice-red text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.98] disabled:opacity-50"
+           >
+             {submitting ? dict.checkout.submitting : dict.checkout.submit}
+           </button>
+         </form>
+ 
+-        <aside className="h-fit rounded-2xl border border-slice-ink/10 bg-slice-paper p-5">
+-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slice-ink/60">
++        <aside className="hairline h-fit rounded-[28px] bg-slice-card p-5 shadow-card">
++          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-slice-ink/40">
+             {dict.checkout.orderSummary}
+           </h2>
+-          <ul className="mt-4 space-y-3">
++          <ul className="mt-3 divide-y divide-slice-ink/[0.06]">
+             {resolved.map((info, i) => (
+-              <li key={i} className="flex justify-between gap-3 text-sm">
++              <li key={i} className="flex justify-between gap-3 py-2.5 text-sm">
+                 <span className="text-slice-ink">
+-                  {info.quantity}× {info.name}
++                  <span className="font-semibold">{info.quantity}×</span> {info.name}
+                   {info.extraNames.length > 0 && (
+                     <span className="block text-xs text-slice-ink/50">
+-                      {info.extraNames.join(", ")}
++                      + {info.extraNames.join(", ")}
+                     </span>
+                   )}
+                 </span>
+-                <span className="whitespace-nowrap font-semibold text-slice-ink">
++                <span className="whitespace-nowrap font-semibold tabular-nums text-slice-ink">
+                   {formatPrice(info.lineTotal)}
+                 </span>
+               </li>
+             ))}
+           </ul>
+-          <div className="mt-4 flex justify-between border-t border-slice-ink/10 pt-4 font-bold text-slice-red">
++          <div className="mt-2 flex justify-between border-t border-slice-ink/10 pt-3 text-[15px] font-bold text-slice-ink">
+             <span>{dict.cart.subtotal}</span>
+-            <span>{formatPrice(total)}</span>
++            <span className="tabular-nums">{formatPrice(total)}</span>
+           </div>
+         </aside>
+       </div>
+diff --git a/components/checkout/DirectionsLink.tsx b/components/checkout/DirectionsLink.tsx
+deleted file mode 100644
+index c8f34a0..0000000
+--- a/components/checkout/DirectionsLink.tsx
++++ /dev/null
+@@ -1,29 +0,0 @@
+-import { SHOP } from "@/lib/config";
+-import { buildDirectionsUrl } from "@/lib/directions";
+-import type { Dictionary } from "@/app/[lang]/dictionaries";
+-
+-export function DirectionsLink({
+-  dict,
+-  destination,
+-}: {
+-  dict: Dictionary;
+-  destination: { lat: number; lng: number } | string | null;
+-}) {
+-  if (!destination) return null;
+-
+-  const url = buildDirectionsUrl(
+-    { lat: SHOP.lat, lng: SHOP.lng },
+-    destination
+-  );
+-
+-  return (
+-    <a
+-      href={url}
+-      target="_blank"
+-      rel="noopener noreferrer"
+-      className="text-xs font-semibold text-slice-red underline hover:text-slice-red-deep"
+-    >
+-      {dict.checkout.previewRoute} →
+-    </a>
+-  );
+-}
+diff --git a/components/checkout/GeolocationButton.tsx b/components/checkout/GeolocationButton.tsx
+index ec71b30..0deaeff 100644
+--- a/components/checkout/GeolocationButton.tsx
++++ b/components/checkout/GeolocationButton.tsx
+@@ -2,15 +2,36 @@
+ 
+ import { useState } from "react";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
++import type { Locale } from "@/lib/i18n/locales";
+ 
+ type Status = "idle" | "locating" | "success" | "error";
+ 
++/** Builds a short, human-readable address from a Nominatim reverse-geocode result. */
++function shortAddress(data: {
++  address?: Record<string, string>;
++  display_name?: string;
++}): string | null {
++  const a = data.address;
++  if (a) {
++    const street = [a.road, a.house_number].filter(Boolean).join(" ");
++    const place = a.city ?? a.town ?? a.village ?? a.municipality;
++    const parts = [street, a.suburb ?? a.neighbourhood, place].filter(Boolean);
++    if (parts.length > 0) return parts.join(", ");
++  }
++  if (data.display_name) {
++    return data.display_name.split(",").slice(0, 3).join(",").trim();
++  }
++  return null;
++}
++
+ export function GeolocationButton({
++  lang,
+   dict,
+   onLocated,
+ }: {
++  lang: Locale;
+   dict: Dictionary;
+-  onLocated: (lat: number, lng: number) => void;
++  onLocated: (coords: { lat: number; lng: number }, address: string) => void;
+ }) {
+   const [status, setStatus] = useState<Status>("idle");
+ 
+@@ -21,8 +42,21 @@ export function GeolocationButton({
+     }
+     setStatus("locating");
+     navigator.geolocation.getCurrentPosition(
+-      (position) => {
+-        onLocated(position.coords.latitude, position.coords.longitude);
++      async (position) => {
++        const { latitude: lat, longitude: lng } = position.coords;
++        const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
++        let address = fallback;
++        try {
++          const res = await fetch(
++            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=${lang}`
++          );
++          if (res.ok) {
++            address = shortAddress(await res.json()) ?? fallback;
++          }
++        } catch {
++          // Reverse geocoding is best-effort — raw coordinates still work.
++        }
++        onLocated({ lat, lng }, address);
+         setStatus("success");
+       },
+       () => setStatus("error"),
+@@ -31,22 +65,27 @@ export function GeolocationButton({
+   }
+ 
+   return (
+-    <div>
++    <div className="text-right">
+       <button
+         type="button"
+         onClick={handleClick}
+         disabled={status === "locating"}
+-        className="rounded-full border border-slice-ink/20 px-4 py-2 text-xs font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red disabled:opacity-60"
++        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slice-red transition hover:text-slice-red-deep disabled:opacity-60"
+       >
++        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
++          <circle cx="12" cy="12" r="6" />
++          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
++        </svg>
+         {status === "locating" ? dict.checkout.locating : dict.checkout.useLocation}
+       </button>
+       {status === "success" && (
+-        <p className="mt-1 text-xs font-medium text-green-700">
+-          {dict.checkout.locationSet}
++        <p className="animate-pop mt-0.5 text-xs font-medium text-green-700">
++          {dict.checkout.locationSet} ✓
+         </p>
+       )}
+       {status === "error" && (
+-        <p className="mt-1 text-xs font-medium text-slice-red">
++        <p className="mt-0.5 text-xs font-medium text-slice-red">
+           {dict.checkout.locationError}
+         </p>
+       )}
+diff --git a/components/checkout/RoutePreview.tsx b/components/checkout/RoutePreview.tsx
+new file mode 100644
+index 0000000..e283f2c
+--- /dev/null
++++ b/components/checkout/RoutePreview.tsx
+@@ -0,0 +1,62 @@
++"use client";
++
++import { useState } from "react";
++import { SHOP } from "@/lib/config";
++import type { Dictionary } from "@/app/[lang]/dictionaries";
++
++/**
++ * Inline route preview: toggles an embedded map with driving directions
++ * from the shop to the customer, right under the address field — no new tab.
++ */
++export function RoutePreview({
++  dict,
++  destination,
++}: {
++  dict: Dictionary;
++  destination: { lat: number; lng: number } | string | null;
++}) {
++  const [open, setOpen] = useState(false);
++
++  if (!destination) return null;
++
++  const dest =
++    typeof destination === "string"
++      ? destination
++      : `${destination.lat},${destination.lng}`;
++  const src = `https://www.google.com/maps?saddr=${encodeURIComponent(
++    `${SHOP.lat},${SHOP.lng}`
++  )}&daddr=${encodeURIComponent(dest)}&output=embed`;
++
++  return (
++    <div className="mt-2">
++      <button
++        type="button"
++        onClick={() => setOpen((v) => !v)}
++        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slice-red transition hover:text-slice-red-deep"
++      >
++        <svg
++          viewBox="0 0 20 20"
++          className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
++          fill="none"
++          stroke="currentColor"
++          strokeWidth="2.2"
++          strokeLinecap="round"
++          strokeLinejoin="round"
++          aria-hidden="true"
++        >
++          <path d="M7 4l6 6-6 6" />
++        </svg>
++        {open ? dict.checkout.hideRoute : dict.checkout.previewRoute}
++      </button>
++      {open && (
++        <iframe
++          src={src}
++          title={dict.checkout.routeTitle}
++          loading="lazy"
++          referrerPolicy="no-referrer-when-downgrade"
++          className="animate-pop hairline mt-2 h-64 w-full rounded-2xl bg-slice-card"
++        />
++      )}
++    </div>
++  );
++}
+diff --git a/components/home/ContactSection.tsx b/components/home/ContactSection.tsx
+new file mode 100644
+index 0000000..11f50f2
+--- /dev/null
++++ b/components/home/ContactSection.tsx
+@@ -0,0 +1,125 @@
++import type { Locale } from "@/lib/i18n/locales";
++import type { Dictionary } from "@/app/[lang]/dictionaries";
++import { SHOP } from "@/lib/config";
++import { Reveal } from "@/components/ui/Reveal";
++
++function InfoRow({
++  icon,
++  label,
++  children,
++}: {
++  icon: React.ReactNode;
++  label: string;
++  children: React.ReactNode;
++}) {
++  return (
++    <div className="flex items-center gap-3.5 px-4 py-3.5">
++      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slice-red/10 text-slice-red">
++        {icon}
++      </span>
++      <span className="min-w-0">
++        <span className="block text-[11px] font-semibold uppercase tracking-wide text-slice-ink/40">
++          {label}
++        </span>
++        <span className="block text-[15px] font-medium text-slice-ink">
++          {children}
++        </span>
++      </span>
++    </div>
++  );
++}
++
++export function ContactSection({
++  lang,
++  dict,
++}: {
++  lang: Locale;
++  dict: Dictionary;
++}) {
++  const mapSrc = `https://www.google.com/maps?q=${SHOP.lat},${SHOP.lng}&z=16&hl=${lang}&output=embed`;
++  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${SHOP.lat},${SHOP.lng}&travelmode=driving`;
++
++  return (
++    <section id="contact" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
++      <Reveal>
++        <h2 className="text-3xl font-bold tracking-tight text-slice-ink">
++          {dict.contact.heading}
++        </h2>
++      </Reveal>
++
++      <div className="mt-6 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
++        <Reveal>
++          <iframe
++            src={mapSrc}
++            title={dict.contact.mapTitle}
++            loading="lazy"
++            referrerPolicy="no-referrer-when-downgrade"
++            allowFullScreen
++            className="hairline h-[300px] w-full rounded-[28px] bg-slice-card shadow-card lg:h-full lg:min-h-[360px]"
++          />
++        </Reveal>
++
++        <Reveal delay={120}>
++          <div className="flex h-full flex-col gap-4">
++            <div className="hairline divide-y divide-slice-ink/[0.06] rounded-[28px] bg-slice-card py-1 shadow-card">
++              <InfoRow
++                label={dict.contact.addressLabel}
++                icon={
++                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++                    <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
++                    <circle cx="12" cy="10" r="3" />
++                  </svg>
++                }
++              >
++                {SHOP.address}
++              </InfoRow>
++              <InfoRow
++                label={dict.contact.phoneLabel}
++                icon={
++                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++                    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2Z" />
++                  </svg>
++                }
++              >
++                <a href={SHOP.phoneHref} className="text-slice-red transition-colors hover:text-slice-red-deep">
++                  {SHOP.phone}
++                </a>
++              </InfoRow>
++              <InfoRow
++                label={dict.contact.hoursLabel}
++                icon={
++                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++                    <circle cx="12" cy="12" r="9" />
++                    <path d="M12 7v5l3 2" />
++                  </svg>
++                }
++              >
++                {dict.contact.hoursValue}
++              </InfoRow>
++            </div>
++
++            <a
++              href={directionsUrl}
++              target="_blank"
++              rel="noopener noreferrer"
++              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slice-red text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.98]"
++            >
++              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++                <path d="M12 2 2 12l10 10 10-10L12 2Z" />
++                <path d="M9 13v-2a1 1 0 0 1 1-1h4M12 8l2 2-2 2" />
++              </svg>
++              {dict.contact.directions}
++            </a>
++
++            <a
++              href={SHOP.phoneHref}
++              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slice-ink/[0.06] text-[15px] font-semibold text-slice-ink transition hover:bg-slice-ink/10 active:scale-[0.98] lg:hidden"
++            >
++              {dict.contact.phoneLabel}: {SHOP.phone}
++            </a>
++          </div>
++        </Reveal>
++      </div>
++    </section>
++  );
++}
+diff --git a/components/home/HeroPizza.tsx b/components/home/HeroPizza.tsx
+new file mode 100644
+index 0000000..57ec0c4
+--- /dev/null
++++ b/components/home/HeroPizza.tsx
+@@ -0,0 +1,194 @@
++"use client";
++
++import { useEffect, useRef } from "react";
++
++const CX = 200;
++const CY = 200;
++const R = 185;
++
++function polar(angleDeg: number, radius: number): [number, number] {
++  const rad = (angleDeg * Math.PI) / 180;
++  return [CX + radius * Math.cos(rad), CY + radius * Math.sin(rad)];
++}
++
++// The slice is cut out between these two angles and nudged outward.
++const GAP_START = -63;
++const GAP_END = -27;
++const [gx1, gy1] = polar(GAP_START, R);
++const [gx2, gy2] = polar(GAP_END, R);
++const BODY_PATH = `M${CX} ${CY} L${gx2} ${gy2} A${R} ${R} 0 1 1 ${gx1} ${gy1} Z`;
++const SLICE_PATH = `M${CX} ${CY} L${gx1} ${gy1} A${R} ${R} 0 0 1 ${gx2} ${gy2} Z`;
++const SLICE_OFFSET = polar(-45, 22).map((v, i) => v - [CX, CY][i]) as [
++  number,
++  number,
++];
++
++const PEPPERONI: Array<[number, number]> = [
++  [10, 105],
++  [55, 80],
++  [100, 110],
++  [145, 85],
++  [190, 105],
++  [235, 88],
++  [272, 112],
++  [-45, 90], // lands on the pulled slice
++].map(([a, r]) => polar(a, r));
++
++const BASIL: Array<{ pos: [number, number]; rot: number }> = [
++  { pos: polar(170, 130), rot: 30 },
++  { pos: polar(65, 138), rot: -15 },
++  { pos: polar(290, 62), rot: 80 },
++  { pos: polar(220, 145), rot: 130 },
++];
++
++const BLISTERS: Array<[number, number]> = [
++  [30, 120],
++  [80, 60],
++  [130, 135],
++  [205, 60],
++  [250, 130],
++  [-50, 140],
++].map(([a, r]) => polar(a, r));
++
++function Leaf({ pos, rot }: { pos: [number, number]; rot: number }) {
++  return (
++    <g transform={`translate(${pos[0]} ${pos[1]}) rotate(${rot})`}>
++      <path
++        d="M0 0 C 9 -13, 24 -13, 30 0 C 24 11, 9 11, 0 0 Z"
++        fill="#4c7a3f"
++      />
++      <path
++        d="M3 0 H 26"
++        stroke="#3a6130"
++        strokeWidth="1.6"
++        strokeLinecap="round"
++      />
++    </g>
++  );
++}
++
++function PizzaLayers() {
++  return (
++    <>
++      <circle cx={CX} cy={CY} r={R} fill="url(#hero-crust)" />
++      <circle cx={CX} cy={CY} r={160} fill="#c9432f" />
++      <circle cx={CX} cy={CY} r={150} fill="url(#hero-cheese)" />
++      {BLISTERS.map(([x, y], i) => (
++        <circle key={i} cx={x} cy={y} r={i % 2 === 0 ? 6 : 4.5} fill="#e8b95d" opacity="0.8" />
++      ))}
++      {PEPPERONI.map(([x, y], i) => (
++        <g key={i}>
++          <circle cx={x} cy={y} r="18" fill="#bf332e" />
++          <circle cx={x} cy={y} r="14" fill="#a92320" />
++          <circle cx={x - 5} cy={y - 4} r="2.2" fill="#d9695f" />
++          <circle cx={x + 4} cy={y + 5} r="1.8" fill="#d9695f" />
++        </g>
++      ))}
++      {BASIL.map((leaf, i) => (
++        <Leaf key={i} {...leaf} />
++      ))}
++    </>
++  );
++}
++
++/**
++ * Hand-drawn hero pizza with one slice pulled out. The whole plate rotates
++ * very slightly with scroll (disabled under prefers-reduced-motion).
++ */
++export function HeroPizza() {
++  const plateRef = useRef<HTMLDivElement>(null);
++
++  useEffect(() => {
++    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
++    let frame = 0;
++    const onScroll = () => {
++      cancelAnimationFrame(frame);
++      frame = requestAnimationFrame(() => {
++        if (plateRef.current) {
++          plateRef.current.style.transform = `rotate(${window.scrollY * 0.045}deg)`;
++        }
++      });
++    };
++    window.addEventListener("scroll", onScroll, { passive: true });
++    return () => {
++      window.removeEventListener("scroll", onScroll);
++      cancelAnimationFrame(frame);
++    };
++  }, []);
++
++  return (
++    <div className="relative mx-auto mt-12 w-[min(82vw,480px)] sm:mt-14">
++      {/* floating garnish */}
++      <svg
++        viewBox="0 0 40 24"
++        className="drift absolute -left-8 top-6 w-14 opacity-90 sm:-left-16 sm:w-20"
++        aria-hidden="true"
++      >
++        <path d="M2 12 C 12 -4, 30 -4, 38 12 C 30 24, 12 24, 2 12 Z" fill="#4c7a3f" />
++        <path d="M6 12 H 33" stroke="#3a6130" strokeWidth="2" strokeLinecap="round" />
++      </svg>
++      <svg
++        viewBox="0 0 40 40"
++        className="drift absolute -right-6 top-1/3 w-12 opacity-90 sm:-right-14 sm:w-16"
++        style={{ animationDelay: "-2s" }}
++        aria-hidden="true"
++      >
++        <circle cx="20" cy="20" r="18" fill="#d0432c" />
++        <circle cx="20" cy="20" r="13" fill="#e5654a" />
++        <circle cx="20" cy="20" r="4" fill="#f3cf7f" />
++        <g fill="#f9e3b0">
++          <ellipse cx="20" cy="10.5" rx="2.2" ry="3.4" />
++          <ellipse cx="28.3" cy="15.2" rx="2.2" ry="3.4" transform="rotate(60 28.3 15.2)" />
++          <ellipse cx="28.3" cy="24.8" rx="2.2" ry="3.4" transform="rotate(120 28.3 24.8)" />
++          <ellipse cx="20" cy="29.5" rx="2.2" ry="3.4" />
++          <ellipse cx="11.7" cy="24.8" rx="2.2" ry="3.4" transform="rotate(60 11.7 24.8)" />
++          <ellipse cx="11.7" cy="15.2" rx="2.2" ry="3.4" transform="rotate(120 11.7 15.2)" />
++        </g>
++      </svg>
++      <svg
++        viewBox="0 0 30 30"
++        className="drift absolute -left-4 bottom-8 w-9 opacity-90 sm:-left-10 sm:w-11"
++        style={{ animationDelay: "-3.5s" }}
++        aria-hidden="true"
++      >
++        <circle cx="15" cy="15" r="13" fill="#bf332e" />
++        <circle cx="15" cy="15" r="10" fill="#a92320" />
++        <circle cx="11" cy="12" r="1.6" fill="#d9695f" />
++        <circle cx="18" cy="18" r="1.8" fill="#d9695f" />
++      </svg>
++
++      <div
++        ref={plateRef}
++        className="will-change-transform"
++        style={{ filter: "drop-shadow(0 30px 45px rgb(53 34 21 / 0.22))" }}
++      >
++        <svg viewBox="-10 -10 420 420" className="w-full" role="img" aria-label="">
++          <defs>
++            <radialGradient id="hero-crust" cx="50%" cy="46%" r="55%">
++              <stop offset="72%" stopColor="#e8b15c" />
++              <stop offset="100%" stopColor="#c9883a" />
++            </radialGradient>
++            <radialGradient id="hero-cheese" cx="50%" cy="45%" r="60%">
++              <stop offset="0%" stopColor="#f7dc95" />
++              <stop offset="100%" stopColor="#efc468" />
++            </radialGradient>
++            <clipPath id="hero-body">
++              <path d={BODY_PATH} />
++            </clipPath>
++            <clipPath id="hero-slice">
++              <path d={SLICE_PATH} />
++            </clipPath>
++          </defs>
++          <g clipPath="url(#hero-body)">
++            <PizzaLayers />
++          </g>
++          <g transform={`translate(${SLICE_OFFSET[0]} ${SLICE_OFFSET[1]})`}>
++            <g clipPath="url(#hero-slice)">
++              <PizzaLayers />
++            </g>
++          </g>
++        </svg>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/home/HeroSection.tsx b/components/home/HeroSection.tsx
+index 454374a..f34e98f 100644
+--- a/components/home/HeroSection.tsx
++++ b/components/home/HeroSection.tsx
+@@ -1,7 +1,8 @@
+ import Link from "next/link";
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+-import { ImageSlot } from "@/components/ui/ImageSlot";
++import { Reveal } from "@/components/ui/Reveal";
++import { HeroPizza } from "@/components/home/HeroPizza";
+ 
+ export function HeroSection({
+   lang,
+@@ -10,58 +11,58 @@ export function HeroSection({
+   lang: Locale;
+   dict: Dictionary;
+ }) {
+-  const badges = [
+-    dict.hero.badgeIngredients,
+-    dict.hero.badgeDough,
+-    dict.hero.badgeOil,
+-  ];
+-
+   return (
+-    <section className="mx-auto grid max-w-6xl gap-10 px-4 pt-10 pb-16 sm:px-6 md:grid-cols-2 md:items-center md:pt-16">
+-      <div>
+-        <p className="text-sm font-semibold uppercase tracking-widest text-slice-red">
+-          {dict.hero.eyebrow}
+-        </p>
+-        <h1 className="mt-3 font-brand text-4xl italic leading-tight text-slice-ink sm:text-5xl">
+-          {dict.hero.title}
+-        </h1>
+-        <p className="mt-5 max-w-md text-base text-slice-ink/80 sm:text-lg">
+-          {dict.hero.subtitle}
+-        </p>
++    <section className="relative overflow-hidden">
++      {/* warm backdrop glow behind the pizza */}
++      <div
++        aria-hidden="true"
++        className="absolute left-1/2 top-64 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-slice-cream/70 blur-3xl"
++      />
++
++      <div className="relative mx-auto max-w-3xl px-4 pt-12 text-center sm:px-6 md:pt-16">
++        <Reveal>
++          <span className="hairline inline-flex items-center gap-2 rounded-full bg-slice-card px-3.5 py-1.5 text-xs font-semibold text-slice-ink/70">
++            <span className="relative flex h-1.5 w-1.5">
++              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-600 opacity-60" />
++              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-600" />
++            </span>
++            {dict.hero.open}
++          </span>
++        </Reveal>
+ 
+-        <div className="mt-8 flex flex-wrap gap-3">
+-          <Link
+-            href={`/${lang}#menu`}
+-            className="rounded-full bg-slice-red px-6 py-3 text-sm font-bold text-slice-paper shadow-lg shadow-slice-red/20 transition-colors hover:bg-slice-red-deep"
+-          >
+-            {dict.hero.ctaPrimary}
+-          </Link>
+-          <Link
+-            href={`/${lang}#menu`}
+-            className="rounded-full border border-slice-ink/20 px-6 py-3 text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
+-          >
+-            {dict.hero.ctaSecondary}
+-          </Link>
+-        </div>
++        <Reveal delay={80}>
++          <h1 className="text-balance mt-5 text-[42px] font-bold leading-[1.04] tracking-tighter text-slice-ink sm:text-6xl">
++            {dict.hero.title}
++          </h1>
++        </Reveal>
+ 
+-        <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-slice-ink/70 sm:text-sm">
+-          {badges.map((badge) => (
+-            <li key={badge} className="flex items-center gap-1.5">
+-              <span className="h-1.5 w-1.5 rounded-full bg-slice-red" />
+-              {badge}
+-            </li>
+-          ))}
+-        </ul>
++        <Reveal delay={160}>
++          <p className="mx-auto mt-4 max-w-md text-[17px] text-slice-ink/60 sm:text-lg">
++            {dict.hero.subtitle}
++          </p>
++        </Reveal>
++
++        <Reveal delay={240}>
++          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
++            <Link
++              href={`/${lang}#menu`}
++              className="flex h-12 items-center rounded-full bg-slice-red px-7 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.97]"
++            >
++              {dict.hero.ctaPrimary}
++            </Link>
++            <Link
++              href={`/${lang}#menu`}
++              className="flex h-12 items-center rounded-full bg-slice-ink/[0.06] px-7 text-[15px] font-semibold text-slice-ink transition hover:bg-slice-ink/10 active:scale-[0.97]"
++            >
++              {dict.hero.ctaSecondary}
++            </Link>
++          </div>
++        </Reveal>
+       </div>
+ 
+-      <ImageSlot
+-        src={undefined}
+-        alt=""
+-        shape="whole"
+-        priority
+-        sizes="(min-width: 768px) 40vw, 90vw"
+-        className="aspect-square w-full rounded-[2.5rem] border border-slice-ink/10 shadow-xl shadow-slice-ink/10"
+-      />
++      <Reveal delay={200} className="relative">
++        <HeroPizza />
++      </Reveal>
+     </section>
+   );
+ }
+diff --git a/components/home/MenuSection.tsx b/components/home/MenuSection.tsx
+index c59e241..464849e 100644
+--- a/components/home/MenuSection.tsx
++++ b/components/home/MenuSection.tsx
+@@ -1,7 +1,8 @@
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+ import { MENU_CATEGORIES } from "@/lib/menu";
+-import { MenuCategoryBlock } from "@/components/menu/MenuCategoryBlock";
++import { MenuKiosk } from "@/components/menu/MenuKiosk";
++import { Reveal } from "@/components/ui/Reveal";
+ 
+ export function MenuSection({
+   lang,
+@@ -11,23 +12,15 @@ export function MenuSection({
+   dict: Dictionary;
+ }) {
+   return (
+-    <section id="menu" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+-      <div className="mb-8 max-w-xl">
+-        <h2 className="font-brand text-3xl italic text-slice-ink">
++    <section id="menu" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
++      <Reveal>
++        <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-slice-ink">
+           {dict.menu.heading}
+         </h2>
+-        <p className="mt-2 text-slice-ink/70">{dict.menu.subheading}</p>
+-      </div>
+-      <div className="space-y-10">
+-        {MENU_CATEGORIES.map((category) => (
+-          <MenuCategoryBlock
+-            key={category.id}
+-            category={category}
+-            lang={lang}
+-            dict={dict}
+-          />
+-        ))}
+-      </div>
++      </Reveal>
++      <Reveal delay={100}>
++        <MenuKiosk categories={MENU_CATEGORIES} lang={lang} dict={dict} />
++      </Reveal>
+     </section>
+   );
+ }
+diff --git a/components/home/OfferCard.tsx b/components/home/OfferCard.tsx
+index 7df74a1..73122cc 100644
+--- a/components/home/OfferCard.tsx
++++ b/components/home/OfferCard.tsx
+@@ -3,7 +3,6 @@
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+ import type { Offer } from "@/lib/types";
+-import { ImageSlot } from "@/components/ui/ImageSlot";
+ import { formatDayMonth, formatTemplate } from "@/lib/i18n/format";
+ import { useCart } from "@/context/CartContext";
+ 
+@@ -22,32 +21,27 @@ export function OfferCard({
+   });
+ 
+   return (
+-    <article className="flex flex-col overflow-hidden rounded-3xl border border-slice-ink/10 bg-slice-paper shadow-sm">
+-      <ImageSlot
+-        src={offer.image}
+-        alt={offer.title[lang]}
+-        shape="slice"
+-        sizes="(min-width: 768px) 33vw, 90vw"
+-        className="aspect-4/3 w-full"
+-      />
+-      <div className="flex flex-1 flex-col gap-2 p-5">
+-        {offer.badge && (
+-          <span className="w-fit rounded-full bg-slice-red/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slice-red">
+-            {offer.badge[lang]}
+-          </span>
+-        )}
+-        <h3 className="text-lg font-semibold text-slice-ink">
+-          {offer.title[lang]}
+-        </h3>
+-        <p className="flex-1 text-sm text-slice-ink/70">
+-          {offer.description[lang]}
+-        </p>
+-        <p className="text-xs font-medium text-slice-ink/50">{untilLabel}</p>
++    <article className="hairline flex h-full w-[268px] flex-col gap-1.5 rounded-2xl bg-slice-card p-4 shadow-card">
++      {offer.badge && (
++        <span className="w-fit rounded-full bg-slice-red/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slice-red">
++          {offer.badge[lang]}
++        </span>
++      )}
++      <h3 className="text-[15px] font-semibold text-slice-ink">
++        {offer.title[lang]}
++      </h3>
++      <p className="line-clamp-2 flex-1 text-[13px] leading-snug text-slice-ink/60">
++        {offer.description[lang]}
++      </p>
++      <div className="mt-1 flex items-center justify-between">
++        <span className="text-[11px] font-medium text-slice-ink/40">
++          {untilLabel}
++        </span>
+         {offer.linkedItemId && (
+           <button
+             type="button"
+             onClick={() => addItem(offer.linkedItemId!, 1, [])}
+-            className="mt-2 rounded-full bg-slice-red px-4 py-2 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
++            className="flex h-7 items-center rounded-full bg-slice-red px-3.5 text-xs font-bold text-slice-paper transition hover:bg-slice-red-deep active:scale-95"
+           >
+             {dict.offers.addToOrder}
+           </button>
+diff --git a/components/home/OffersSection.tsx b/components/home/OffersSection.tsx
+index ed996f7..285dda3 100644
+--- a/components/home/OffersSection.tsx
++++ b/components/home/OffersSection.tsx
+@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+ import { getActiveOffers } from "@/lib/offers";
+ import { OfferCard } from "@/components/home/OfferCard";
++import { Reveal } from "@/components/ui/Reveal";
+ 
+ export function OffersSection({
+   lang,
+@@ -11,27 +12,22 @@ export function OffersSection({
+   dict: Dictionary;
+ }) {
+   const offers = getActiveOffers();
++  if (offers.length === 0) return null;
+ 
+   return (
+-    <section id="offers" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+-      <div className="mb-8 max-w-xl">
+-        <h2 className="font-brand text-3xl italic text-slice-ink">
++    <section id="offers" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
++      <Reveal>
++        <h2 className="text-2xl font-bold tracking-tight text-slice-ink">
+           {dict.offers.heading}
+         </h2>
+-        <p className="mt-2 text-slice-ink/70">{dict.offers.subheading}</p>
++      </Reveal>
++      <div className="no-scrollbar -mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
++        {offers.map((offer, i) => (
++          <Reveal key={offer.id} delay={i * 80} className="snap-start">
++            <OfferCard offer={offer} lang={lang} dict={dict} />
++          </Reveal>
++        ))}
+       </div>
+-
+-      {offers.length === 0 ? (
+-        <p className="rounded-2xl border border-dashed border-slice-ink/20 p-8 text-center text-slice-ink/60">
+-          {dict.offers.empty}
+-        </p>
+-      ) : (
+-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+-          {offers.map((offer) => (
+-            <OfferCard key={offer.id} offer={offer} lang={lang} dict={dict} />
+-          ))}
+-        </div>
+-      )}
+     </section>
+   );
+ }
+diff --git a/components/home/PizzaWheel.tsx b/components/home/PizzaWheel.tsx
+index b628b56..85dc31a 100644
+--- a/components/home/PizzaWheel.tsx
++++ b/components/home/PizzaWheel.tsx
+@@ -1,14 +1,35 @@
+ "use client";
+ 
+-import { useMemo, useState } from "react";
++import { useRef, useState } from "react";
+ import { PIZZA_ITEMS } from "@/lib/menu";
+ import { formatPrice } from "@/lib/cart/pricing";
+ import { useCart } from "@/context/CartContext";
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
++import { LogoMark } from "@/components/ui/Logo";
++import { Reveal } from "@/components/ui/Reveal";
+ 
+-const SPIN_DURATION_MS = 3200;
++const SPIN_DURATION_MS = 3600;
+ const EXTRA_SPINS = 5;
++const SIZE = 320;
++const C = SIZE / 2;
++const R = C - 6;
++
++// Warm red ramp — adjacent segments always differ, including at the wrap.
++const SEGMENT_COLORS = [
++  "#cd3a32",
++  "#b92a26",
++  "#a51f1c",
++  "#911512",
++  "#7d0d0b",
++  "#a51f1c",
++  "#b92a26",
++];
++
++function polar(angleDeg: number, radius: number): [number, number] {
++  const rad = (angleDeg * Math.PI) / 180;
++  return [C + radius * Math.cos(rad), C + radius * Math.sin(rad)];
++}
+ 
+ export function PizzaWheel({
+   lang,
+@@ -21,134 +42,151 @@ export function PizzaWheel({
+   const [rotation, setRotation] = useState(0);
+   const [spinning, setSpinning] = useState(false);
+   const [resultIndex, setResultIndex] = useState<number | null>(null);
++  const pendingIndex = useRef<number | null>(null);
+ 
+   const count = PIZZA_ITEMS.length;
+   const segment = 360 / count;
+ 
+-  const wheelBackground = useMemo(() => {
+-    const stops = PIZZA_ITEMS.map((_, i) => {
+-      const color =
+-        i % 2 === 0 ? "var(--color-slice-red)" : "var(--color-slice-red-deep)";
+-      return `${color} ${i * segment}deg ${(i + 1) * segment}deg`;
+-    }).join(", ");
+-    return `conic-gradient(${stops})`;
+-  }, [segment]);
+-
+   function spin() {
+     if (spinning) return;
+     const randomIndex = Math.floor(Math.random() * count);
+-    const segmentCenter = randomIndex * segment + segment / 2;
+-    const targetMod = (360 - segmentCenter) % 360;
+-
++    // Rotate so the chosen segment's center lands under the top pointer.
++    const target = (360 - (randomIndex * segment + segment / 2)) % 360;
+     setRotation((prev) => {
+       const prevMod = ((prev % 360) + 360) % 360;
+-      let delta = targetMod - prevMod;
++      let delta = target - prevMod;
+       if (delta <= 0) delta += 360;
+       return prev + delta + EXTRA_SPINS * 360;
+     });
++    pendingIndex.current = randomIndex;
+     setSpinning(true);
+     setResultIndex(null);
+-    window.setTimeout(() => {
+-      setSpinning(false);
+-      setResultIndex(randomIndex);
+-    }, SPIN_DURATION_MS);
++  }
++
++  function handleSpinEnd() {
++    if (pendingIndex.current === null) return;
++    setResultIndex(pendingIndex.current);
++    pendingIndex.current = null;
++    setSpinning(false);
+   }
+ 
+   const result = resultIndex !== null ? PIZZA_ITEMS[resultIndex] : null;
+ 
+   return (
+-    <section
+-      id="game"
+-      className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6"
+-    >
+-      <h2 className="font-brand text-3xl italic text-slice-ink">
+-        {dict.wheel.heading}
+-      </h2>
+-      <p className="mx-auto mt-2 max-w-md text-slice-ink/70">
+-        {dict.wheel.subheading}
+-      </p>
+-
+-      <div className="relative mx-auto mt-10 h-72 w-72 sm:h-80 sm:w-80">
+-        <div
+-          className="absolute left-1/2 top-0 z-10 h-0 w-0 -translate-x-1/2 -translate-y-1"
+-          style={{
+-            borderLeft: "12px solid transparent",
+-            borderRight: "12px solid transparent",
+-            borderTop: "20px solid var(--color-slice-ink)",
+-          }}
+-          aria-hidden="true"
+-        />
++    <section id="game" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
++      <Reveal>
++        <div className="hairline grid items-center gap-8 rounded-[32px] bg-slice-card p-6 shadow-card sm:p-10 md:grid-cols-[auto_1fr] md:gap-14">
++          <div className="relative mx-auto w-[min(78vw,320px)]">
++            {/* pointer */}
++            <svg
++              viewBox="0 0 24 18"
++              className="absolute left-1/2 top-0 z-10 w-7 -translate-x-1/2 -translate-y-2 drop-shadow-sm"
++              aria-hidden="true"
++            >
++              <path d="M2 2 h20 l-10 15 Z" fill="var(--color-slice-ink)" />
++            </svg>
+ 
+-        <div
+-          className="relative h-full w-full overflow-hidden rounded-full border-[10px] border-slice-cream shadow-xl shadow-slice-ink/20"
+-          style={{
+-            background: wheelBackground,
+-            transform: `rotate(${rotation}deg)`,
+-            transition: `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.17, 0.67, 0.16, 0.99)`,
+-            backgroundImage: `${wheelBackground}, radial-gradient(circle, var(--color-slice-paper) 0 6px, transparent 7px)`,
+-            backgroundSize: "100% 100%, 22px 22px",
+-          }}
+-        >
+-          {PIZZA_ITEMS.map((item, i) => {
+-            const midAngle = i * segment + segment / 2;
+-            const label = item.name[lang].replace(/^Pizza\s+/i, "");
+-            return (
+-              <span
+-                key={item.id}
+-                className="absolute left-1/2 top-1/2 w-24 origin-left text-left text-[11px] font-bold uppercase tracking-wide text-slice-paper"
+-                style={{
+-                  transform: `rotate(${midAngle}deg) translateX(14px)`,
+-                }}
+-              >
+-                {label}
+-              </span>
+-            );
+-          })}
++            <div
++              onTransitionEnd={handleSpinEnd}
++              className="w-full"
++              style={{
++                transform: `rotate(${rotation}deg)`,
++                transition: `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.12, 0.68, 0.08, 1)`,
++              }}
++            >
++              <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full" aria-hidden="true">
++                <circle cx={C} cy={C} r={C} fill="var(--color-slice-paper)" />
++                {PIZZA_ITEMS.map((item, i) => {
++                  const start = i * segment - 90;
++                  const end = start + segment;
++                  const [x1, y1] = polar(start, R);
++                  const [x2, y2] = polar(end, R);
++                  const mid = start + segment / 2;
++                  const label = item.name[lang].replace(/^Pizza\s+/i, "");
++                  return (
++                    <g key={item.id}>
++                      <path
++                        d={`M${C} ${C} L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z`}
++                        fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
++                        stroke="var(--color-slice-paper)"
++                        strokeWidth="2.5"
++                      />
++                      <g transform={`translate(${C} ${C}) rotate(${mid})`}>
++                        <text
++                          x={54}
++                          y={0}
++                          dominantBaseline="middle"
++                          textAnchor="start"
++                          fill="var(--color-slice-paper)"
++                          fontSize="12.5"
++                          fontWeight="700"
++                          letterSpacing="0.06em"
++                        >
++                          {label.toUpperCase()}
++                        </text>
++                      </g>
++                    </g>
++                  );
++                })}
++                <circle cx={C} cy={C} r={40} fill="var(--color-slice-paper)" />
++              </svg>
++            </div>
+ 
+-          <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-slice-cream bg-slice-ink font-brand text-xs italic text-slice-paper">
+-            slice
++            {/* stationary hub */}
++            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
++              <LogoMark className="h-14 w-14 drop-shadow-md" />
++            </div>
+           </div>
+-        </div>
+-      </div>
+ 
+-      <button
+-        type="button"
+-        onClick={spin}
+-        disabled={spinning}
+-        className="mt-8 rounded-full bg-slice-red px-8 py-3 text-sm font-bold text-slice-paper shadow-lg shadow-slice-red/20 transition-colors hover:bg-slice-red-deep disabled:opacity-60"
+-      >
+-        {spinning ? dict.wheel.spinning : dict.wheel.spinButton}
+-      </button>
++          <div className="text-center md:text-left">
++            <h2 className="text-3xl font-bold tracking-tight text-slice-ink">
++              {dict.wheel.heading}
++            </h2>
++            <p className="mt-2 text-[15px] text-slice-ink/60">
++              {dict.wheel.subheading}
++            </p>
+ 
+-      {result && !spinning && (
+-        <div className="mx-auto mt-8 max-w-sm rounded-3xl border border-slice-ink/10 bg-slice-paper p-6">
+-          <p className="text-sm font-medium text-slice-ink/60">
+-            {dict.wheel.resultPrefix}
+-          </p>
+-          <p className="mt-1 font-brand text-2xl italic text-slice-red">
+-            {result.name[lang]}
+-          </p>
+-          <p className="mt-1 text-sm text-slice-ink/60">
+-            {formatPrice(result.price)}
+-          </p>
+-          <div className="mt-4 flex justify-center gap-3">
+-            <button
+-              type="button"
+-              onClick={() => addItem(result.id, 1, [])}
+-              className="rounded-full bg-slice-red px-5 py-2 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
+-            >
+-              {dict.wheel.addToOrder}
+-            </button>
+             <button
+               type="button"
+               onClick={spin}
+-              className="rounded-full border border-slice-ink/20 px-5 py-2 text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
++              disabled={spinning}
++              className="mt-6 h-12 rounded-full bg-slice-red px-8 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.97] disabled:opacity-50"
+             >
+-              {dict.wheel.spinAgain}
++              {spinning ? dict.wheel.spinning : dict.wheel.spinButton}
+             </button>
++
++            {result && (
++              <div className="animate-pop mt-6 rounded-2xl bg-slice-paper p-5 md:max-w-sm">
++                <p className="text-[13px] font-semibold uppercase tracking-wide text-slice-ink/40">
++                  {dict.wheel.resultPrefix}
++                </p>
++                <p className="mt-1 flex items-baseline justify-center gap-2.5 text-xl font-bold tracking-tight text-slice-ink md:justify-start">
++                  {result.name[lang]}
++                  <span className="text-[15px] font-semibold text-slice-ink/50">
++                    {formatPrice(result.price)}
++                  </span>
++                </p>
++                <div className="mt-4 flex justify-center gap-2.5 md:justify-start">
++                  <button
++                    type="button"
++                    onClick={() => addItem(result.id, 1, [])}
++                    className="h-10 rounded-full bg-slice-red px-5 text-sm font-semibold text-slice-paper transition hover:bg-slice-red-deep active:scale-[0.97]"
++                  >
++                    {dict.wheel.addToOrder}
++                  </button>
++                  <button
++                    type="button"
++                    onClick={spin}
++                    className="h-10 rounded-full bg-slice-ink/[0.06] px-5 text-sm font-semibold text-slice-ink transition hover:bg-slice-ink/10 active:scale-[0.97]"
++                  >
++                    {dict.wheel.spinAgain}
++                  </button>
++                </div>
++              </div>
++            )}
+           </div>
+         </div>
+-      )}
++      </Reveal>
+     </section>
+   );
+ }
+diff --git a/components/language/LanguageToggle.tsx b/components/language/LanguageToggle.tsx
+index d641c6e..ef5baf1 100644
+--- a/components/language/LanguageToggle.tsx
++++ b/components/language/LanguageToggle.tsx
+@@ -24,12 +24,13 @@ export function LanguageToggle({
+   return (
+     <Link
+       href={href}
++      aria-label={label}
+       onClick={() => {
+         document.cookie = `NEXT_LOCALE=${target}; path=/; max-age=31536000`;
+       }}
+-      className="rounded-full border border-slice-ink/20 px-3 py-1.5 text-sm font-medium text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
++      className="flex h-9 items-center rounded-full bg-slice-ink/[0.06] px-3.5 text-[13px] font-bold text-slice-ink transition-colors hover:bg-slice-ink/10"
+     >
+-      {label}
++      {target.toUpperCase()}
+     </Link>
+   );
+ }
+diff --git a/components/layout/Footer.tsx b/components/layout/Footer.tsx
+index f5cd34e..f2c03e1 100644
+--- a/components/layout/Footer.tsx
++++ b/components/layout/Footer.tsx
+@@ -1,53 +1,33 @@
++import Link from "next/link";
++import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
+-import { SHOP } from "@/lib/config";
++import { Logo } from "@/components/ui/Logo";
+ 
+-export function Footer({ dict }: { dict: Dictionary }) {
+-  return (
+-    <footer
+-      id="contact"
+-      className="mt-16 border-t border-slice-ink/10 bg-slice-paper pb-24 md:pb-0"
+-    >
+-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
+-        <div>
+-          <div className="flex flex-col leading-none">
+-            <span className="font-brand text-2xl italic text-slice-red">
+-              slice
+-            </span>
+-            <span className="text-[10px] font-semibold tracking-[0.35em] text-slice-ink">
+-              HOUSE
+-            </span>
+-          </div>
+-          <p className="mt-3 max-w-xs text-sm text-slice-ink/70">
+-            {dict.hero.eyebrow}
+-          </p>
+-        </div>
+-
+-        <div>
+-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slice-ink/60">
+-            {dict.footer.hours}
+-          </h3>
+-          <p className="mt-2 text-slice-ink">{dict.footer.hoursValue}</p>
+-        </div>
++export function Footer({ lang, dict }: { lang: Locale; dict: Dictionary }) {
++  const navLinks = [
++    { href: `/${lang}#menu`, label: dict.nav.menu },
++    { href: `/${lang}#offers`, label: dict.nav.offers },
++    { href: `/${lang}#contact`, label: dict.nav.contact },
++  ];
+ 
+-        <div>
+-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slice-ink/60">
+-            {dict.footer.callUs}
+-          </h3>
+-          <a
+-            href={SHOP.phoneHref}
+-            className="mt-2 block font-medium text-slice-red hover:text-slice-red-deep"
+-          >
+-            {SHOP.phone}
+-          </a>
+-          <h3 className="mt-4 text-sm font-semibold uppercase tracking-wide text-slice-ink/60">
+-            {dict.footer.address}
+-          </h3>
+-          <p className="mt-2 text-slice-ink">{SHOP.address}</p>
+-        </div>
+-      </div>
+-
+-      <div className="border-t border-slice-ink/10 px-4 py-4 text-center text-xs text-slice-ink/50 sm:px-6">
+-        © {new Date().getFullYear()} Slice House. {dict.footer.rights}
++  return (
++    <footer className="mt-20 border-t border-slice-ink/10 pb-28 md:pb-0">
++      <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-10 sm:flex-row sm:justify-between sm:px-6">
++        <Logo />
++        <nav className="flex items-center gap-6 text-[13px] font-semibold text-slice-ink/60">
++          {navLinks.map((link) => (
++            <Link
++              key={link.href}
++              href={link.href}
++              className="transition-colors hover:text-slice-ink"
++            >
++              {link.label}
++            </Link>
++          ))}
++        </nav>
++        <p className="text-xs text-slice-ink/40">
++          © {new Date().getFullYear()} Slice House. {dict.footer.rights}
++        </p>
+       </div>
+     </footer>
+   );
+diff --git a/components/layout/Header.tsx b/components/layout/Header.tsx
+index 879dbea..c04d2fe 100644
+--- a/components/layout/Header.tsx
++++ b/components/layout/Header.tsx
+@@ -1,42 +1,38 @@
+ import Link from "next/link";
+ import type { Locale } from "@/lib/i18n/locales";
+ import type { Dictionary } from "@/app/[lang]/dictionaries";
++import { Logo } from "@/components/ui/Logo";
+ import { LanguageToggle } from "@/components/language/LanguageToggle";
+ import { CartBadge } from "@/components/cart/CartBadge";
+ 
+ export function Header({ lang, dict }: { lang: Locale; dict: Dictionary }) {
+   const navLinks = [
+-    { href: `/${lang}#offers`, label: dict.nav.offers },
+     { href: `/${lang}#menu`, label: dict.nav.menu },
++    { href: `/${lang}#offers`, label: dict.nav.offers },
+     { href: `/${lang}#game`, label: dict.nav.game },
+     { href: `/${lang}#contact`, label: dict.nav.contact },
+   ];
+ 
+   return (
+-    <header className="sticky top-0 z-40 border-b border-slice-ink/10 bg-slice-cream/95 backdrop-blur">
+-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+-        <Link href={`/${lang}`} className="flex flex-col leading-none">
+-          <span className="font-brand text-2xl italic text-slice-red">
+-            slice
+-          </span>
+-          <span className="text-[10px] font-semibold tracking-[0.35em] text-slice-ink">
+-            HOUSE
+-          </span>
++    <header className="sticky top-0 z-40 border-b border-slice-ink/10 bg-slice-paper/80 backdrop-blur-xl">
++      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
++        <Link href={`/${lang}`} aria-label="Slice House">
++          <Logo />
+         </Link>
+ 
+-        <nav className="hidden items-center gap-6 text-sm font-medium text-slice-ink md:flex">
++        <nav className="hidden items-center gap-7 text-[13px] font-semibold text-slice-ink/60 md:flex">
+           {navLinks.map((link) => (
+             <Link
+               key={link.href}
+               href={link.href}
+-              className="transition-colors hover:text-slice-red"
++              className="transition-colors hover:text-slice-ink"
+             >
+               {link.label}
+             </Link>
+           ))}
+         </nav>
+ 
+-        <div className="flex items-center gap-3">
++        <div className="flex items-center gap-2">
+           <LanguageToggle locale={lang} label={dict.common.languageToggle} />
+           <CartBadge lang={lang} label={dict.nav.cart} />
+         </div>
+diff --git a/components/layout/StickyOrderBar.tsx b/components/layout/StickyOrderBar.tsx
+index b312c3a..cae93b6 100644
+--- a/components/layout/StickyOrderBar.tsx
++++ b/components/layout/StickyOrderBar.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import Link from "next/link";
++import { usePathname } from "next/navigation";
+ import { useCart } from "@/context/CartContext";
+ import { computeCartTotal, formatPrice, resolveOrderItems } from "@/lib/cart/pricing";
+ import type { Locale } from "@/lib/i18n/locales";
+@@ -13,21 +14,34 @@ export function StickyOrderBar({
+   label: string;
+ }) {
+   const { items, hydrated, itemCount } = useCart();
++  const pathname = usePathname();
+ 
+-  if (!hydrated || items.length === 0) return null;
++  // The bar is a shortcut into the order flow — once there, it's just noise.
++  const inOrderFlow =
++    pathname.includes("/cart") || pathname.includes("/checkout");
++
++  if (!hydrated || items.length === 0 || inOrderFlow) return null;
+ 
+   const total = computeCartTotal(resolveOrderItems(items, lang));
+ 
+   return (
+-    <div className="fixed inset-x-0 bottom-0 z-40 p-3 md:hidden">
++    <div className="pb-safe fixed inset-x-0 bottom-0 z-40 px-3 pb-3 md:hidden">
+       <Link
+         href={`/${lang}/cart`}
+-        className="flex items-center justify-between rounded-full bg-slice-red px-5 py-3 text-slice-paper shadow-xl shadow-slice-ink/20 transition-colors hover:bg-slice-red-deep"
++        className="animate-bar-up flex items-center justify-between rounded-2xl bg-slice-red px-4 py-3.5 text-slice-paper shadow-float transition-transform active:scale-[0.98]"
+       >
+-        <span className="text-sm font-semibold">
+-          {itemCount} · {formatPrice(total)}
++        <span className="flex items-center gap-2.5 text-[15px] font-semibold">
++          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/20 px-1.5 text-[13px] font-bold">
++            {itemCount}
++          </span>
++          {formatPrice(total)}
++        </span>
++        <span className="flex items-center gap-1 text-[15px] font-bold">
++          {label}
++          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++            <path d="M7 4l6 6-6 6" />
++          </svg>
+         </span>
+-        <span className="text-sm font-bold">{label} →</span>
+       </Link>
+     </div>
+   );
+diff --git a/components/menu/AddToCartControl.tsx b/components/menu/AddToCartControl.tsx
+deleted file mode 100644
+index 1d225f0..0000000
+--- a/components/menu/AddToCartControl.tsx
++++ /dev/null
+@@ -1,103 +0,0 @@
+-"use client";
+-
+-import { useState } from "react";
+-import { useCart } from "@/context/CartContext";
+-import { findExtra } from "@/lib/menu";
+-import { formatPrice } from "@/lib/cart/pricing";
+-import type { MenuItem } from "@/lib/types";
+-import type { Locale } from "@/lib/i18n/locales";
+-import type { Dictionary } from "@/app/[lang]/dictionaries";
+-
+-export function AddToCartControl({
+-  item,
+-  lang,
+-  dict,
+-}: {
+-  item: MenuItem;
+-  lang: Locale;
+-  dict: Dictionary;
+-}) {
+-  const { addItem } = useCart();
+-  const [quantity, setQuantity] = useState(1);
+-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+-  const [justAdded, setJustAdded] = useState(false);
+-
+-  const extras = (item.allowedExtraIds ?? [])
+-    .map((id) => findExtra(id))
+-    .filter((e): e is NonNullable<typeof e> => Boolean(e));
+-
+-  function toggleExtra(id: string) {
+-    setSelectedExtras((prev) =>
+-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+-    );
+-  }
+-
+-  function handleAdd() {
+-    addItem(item.id, quantity, selectedExtras);
+-    setJustAdded(true);
+-    setQuantity(1);
+-    setSelectedExtras([]);
+-    window.setTimeout(() => setJustAdded(false), 1500);
+-  }
+-
+-  return (
+-    <div className="mt-3 space-y-3">
+-      {extras.length > 0 && (
+-        <div className="flex flex-wrap gap-2">
+-          {extras.map((extra) => {
+-            const active = selectedExtras.includes(extra.id);
+-            return (
+-              <label
+-                key={extra.id}
+-                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+-                  active
+-                    ? "border-slice-red bg-slice-red/10 text-slice-red"
+-                    : "border-slice-ink/15 text-slice-ink/70 hover:border-slice-ink/30"
+-                }`}
+-              >
+-                <input
+-                  type="checkbox"
+-                  className="sr-only"
+-                  checked={active}
+-                  onChange={() => toggleExtra(extra.id)}
+-                />
+-                {extra.name[lang]} (+{formatPrice(extra.price)})
+-              </label>
+-            );
+-          })}
+-        </div>
+-      )}
+-
+-      <div className="flex items-center gap-3">
+-        <div className="flex items-center rounded-full border border-slice-ink/15">
+-          <button
+-            type="button"
+-            aria-label="-"
+-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+-            className="px-3 py-1.5 text-slice-ink"
+-          >
+-            −
+-          </button>
+-          <span className="w-6 text-center text-sm font-semibold">
+-            {quantity}
+-          </span>
+-          <button
+-            type="button"
+-            aria-label="+"
+-            onClick={() => setQuantity((q) => q + 1)}
+-            className="px-3 py-1.5 text-slice-ink"
+-          >
+-            +
+-          </button>
+-        </div>
+-        <button
+-          type="button"
+-          onClick={handleAdd}
+-          className="flex-1 rounded-full bg-slice-red px-4 py-2 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
+-        >
+-          {justAdded ? dict.menu.added : dict.menu.addToCart}
+-        </button>
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/components/menu/ItemSheet.tsx b/components/menu/ItemSheet.tsx
+new file mode 100644
+index 0000000..6bc8aed
+--- /dev/null
++++ b/components/menu/ItemSheet.tsx
+@@ -0,0 +1,205 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import type { MenuItem } from "@/lib/types";
++import type { Locale } from "@/lib/i18n/locales";
++import type { Dictionary } from "@/app/[lang]/dictionaries";
++import { findExtra } from "@/lib/menu";
++import { formatPrice } from "@/lib/cart/pricing";
++import { formatTemplate } from "@/lib/i18n/format";
++import { useCart } from "@/context/CartContext";
++import { ImageSlot } from "@/components/ui/ImageSlot";
++import { artForMenuItem } from "@/components/ui/FoodArt";
++
++/**
++ * iOS-style sheet for configuring an item: bottom sheet on mobile,
++ * centered card on larger screens.
++ */
++export function ItemSheet({
++  item,
++  lang,
++  dict,
++  onClose,
++}: {
++  item: MenuItem;
++  lang: Locale;
++  dict: Dictionary;
++  onClose: () => void;
++}) {
++  const { addItem } = useCart();
++  const [quantity, setQuantity] = useState(1);
++  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
++
++  const extras = (item.allowedExtraIds ?? [])
++    .map((id) => findExtra(id))
++    .filter((e): e is NonNullable<typeof e> => Boolean(e));
++
++  const extrasPrice = selectedExtras.reduce(
++    (sum, id) => sum + (findExtra(id)?.price ?? 0),
++    0
++  );
++  const total = Math.round((item.price + extrasPrice) * quantity * 100) / 100;
++  const art = artForMenuItem(item);
++
++  useEffect(() => {
++    const previousOverflow = document.body.style.overflow;
++    document.body.style.overflow = "hidden";
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key === "Escape") onClose();
++    };
++    window.addEventListener("keydown", onKey);
++    return () => {
++      document.body.style.overflow = previousOverflow;
++      window.removeEventListener("keydown", onKey);
++    };
++  }, [onClose]);
++
++  function toggleExtra(id: string) {
++    setSelectedExtras((prev) =>
++      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
++    );
++  }
++
++  function handleAdd() {
++    addItem(item.id, quantity, selectedExtras);
++    onClose();
++  }
++
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
++      role="dialog"
++      aria-modal="true"
++      aria-label={item.name[lang]}
++    >
++      <button
++        type="button"
++        aria-label={dict.menu.close}
++        onClick={onClose}
++        className="animate-backdrop absolute inset-0 bg-slice-ink/40 backdrop-blur-[2px]"
++      />
++
++      <div className="animate-sheet-up sm:animate-sheet-pop pb-safe relative w-full rounded-t-[28px] bg-slice-card shadow-float sm:w-[420px] sm:rounded-[28px]">
++        <div className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-slice-ink/15 sm:hidden" />
++
++        <button
++          type="button"
++          aria-label={dict.menu.close}
++          onClick={onClose}
++          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-slice-ink/[0.06] text-slice-ink/60 transition hover:bg-slice-ink/10"
++        >
++          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
++            <path d="M5 5l10 10M15 5L5 15" />
++          </svg>
++        </button>
++
++        <div className="max-h-[80dvh] overflow-y-auto px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
++          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-slice-paper">
++            <ImageSlot
++              src={item.image}
++              alt=""
++              art={art.kind}
++              accent={art.accent}
++              sizes="112px"
++              className="h-24 w-24 rounded-full"
++            />
++          </div>
++
++          <h3 className="mt-3 text-center text-xl font-bold tracking-tight text-slice-ink">
++            {item.name[lang]}
++          </h3>
++          {item.description && (
++            <p className="mt-1 text-center text-sm text-slice-ink/60">
++              {item.description[lang]}
++            </p>
++          )}
++
++          {extras.length > 0 && (
++            <div className="mt-5">
++              <p className="text-[13px] font-semibold uppercase tracking-wide text-slice-ink/40">
++                {dict.menu.extrasLabel}
++              </p>
++              <div className="mt-2 divide-y divide-slice-ink/[0.06] rounded-2xl bg-slice-paper">
++                {extras.map((extra) => {
++                  const checked = selectedExtras.includes(extra.id);
++                  return (
++                    <button
++                      key={extra.id}
++                      type="button"
++                      role="checkbox"
++                      aria-checked={checked}
++                      onClick={() => toggleExtra(extra.id)}
++                      className="flex w-full items-center justify-between px-4 py-3 text-left"
++                    >
++                      <span className="text-[15px] font-medium text-slice-ink">
++                        {extra.name[lang]}
++                      </span>
++                      <span className="flex items-center gap-3">
++                        <span className="text-[13px] font-medium text-slice-ink/50">
++                          +{formatPrice(extra.price)}
++                        </span>
++                        <span
++                          aria-hidden="true"
++                          className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
++                            checked
++                              ? "bg-slice-red text-slice-paper"
++                              : "bg-slice-ink/10"
++                          }`}
++                        >
++                          {checked && (
++                            <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
++                              <path d="M4 10.5l4 4 8-8" />
++                            </svg>
++                          )}
++                        </span>
++                      </span>
++                    </button>
++                  );
++                })}
++              </div>
++            </div>
++          )}
++
++          <div className="mt-5 flex items-center justify-between rounded-2xl bg-slice-paper px-4 py-3">
++            <span className="text-[15px] font-medium text-slice-ink">
++              {dict.menu.quantity}
++            </span>
++            <div className="flex items-center gap-4">
++              <button
++                type="button"
++                aria-label="−"
++                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
++                className="flex h-8 w-8 items-center justify-center rounded-full bg-slice-ink/[0.06] text-slice-ink transition active:scale-90"
++              >
++                <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
++                  <path d="M4 10h12" />
++                </svg>
++              </button>
++              <span className="w-5 text-center text-[17px] font-bold tabular-nums text-slice-ink">
++                {quantity}
++              </span>
++              <button
++                type="button"
++                aria-label="+"
++                onClick={() => setQuantity((q) => q + 1)}
++                className="flex h-8 w-8 items-center justify-center rounded-full bg-slice-ink/[0.06] text-slice-ink transition active:scale-90"
++              >
++                <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
++                  <path d="M10 4v12M4 10h12" />
++                </svg>
++              </button>
++            </div>
++          </div>
++
++          <button
++            type="button"
++            onClick={handleAdd}
++            className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-slice-red text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.98]"
++          >
++            {formatTemplate(dict.menu.addForPrice, { price: formatPrice(total) })}
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/menu/MenuCategoryBlock.tsx b/components/menu/MenuCategoryBlock.tsx
+deleted file mode 100644
+index 40b8a84..0000000
+--- a/components/menu/MenuCategoryBlock.tsx
++++ /dev/null
+@@ -1,27 +0,0 @@
+-import type { MenuCategory } from "@/lib/types";
+-import type { Locale } from "@/lib/i18n/locales";
+-import type { Dictionary } from "@/app/[lang]/dictionaries";
+-import { MenuItemCard } from "@/components/menu/MenuItemCard";
+-
+-export function MenuCategoryBlock({
+-  category,
+-  lang,
+-  dict,
+-}: {
+-  category: MenuCategory;
+-  lang: Locale;
+-  dict: Dictionary;
+-}) {
+-  return (
+-    <div>
+-      <h3 className="mb-4 text-xl font-semibold text-slice-ink">
+-        {category.label[lang]}
+-      </h3>
+-      <div className="grid gap-4 sm:grid-cols-2">
+-        {category.items.map((item) => (
+-          <MenuItemCard key={item.id} item={item} lang={lang} dict={dict} />
+-        ))}
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/components/menu/MenuItemCard.tsx b/components/menu/MenuItemCard.tsx
+deleted file mode 100644
+index 00aa6f3..0000000
+--- a/components/menu/MenuItemCard.tsx
++++ /dev/null
+@@ -1,42 +0,0 @@
+-import { ImageSlot } from "@/components/ui/ImageSlot";
+-import { AddToCartControl } from "@/components/menu/AddToCartControl";
+-import { formatPrice } from "@/lib/cart/pricing";
+-import type { MenuItem } from "@/lib/types";
+-import type { Locale } from "@/lib/i18n/locales";
+-import type { Dictionary } from "@/app/[lang]/dictionaries";
+-
+-export function MenuItemCard({
+-  item,
+-  lang,
+-  dict,
+-}: {
+-  item: MenuItem;
+-  lang: Locale;
+-  dict: Dictionary;
+-}) {
+-  return (
+-    <div className="flex gap-4 rounded-2xl border border-slice-ink/10 bg-slice-paper p-4">
+-      <ImageSlot
+-        src={item.image}
+-        alt={item.name[lang]}
+-        shape="slice"
+-        sizes="80px"
+-        className="h-20 w-20 shrink-0 rounded-xl"
+-      />
+-      <div className="flex-1">
+-        <div className="flex items-start justify-between gap-2">
+-          <h3 className="font-semibold text-slice-ink">{item.name[lang]}</h3>
+-          <span className="whitespace-nowrap font-bold text-slice-red">
+-            {formatPrice(item.price)}
+-          </span>
+-        </div>
+-        {item.description && (
+-          <p className="mt-1 text-sm text-slice-ink/60">
+-            {item.description[lang]}
+-          </p>
+-        )}
+-        <AddToCartControl item={item} lang={lang} dict={dict} />
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/components/menu/MenuKiosk.tsx b/components/menu/MenuKiosk.tsx
+new file mode 100644
+index 0000000..7388560
+--- /dev/null
++++ b/components/menu/MenuKiosk.tsx
+@@ -0,0 +1,136 @@
++"use client";
++
++import { useState } from "react";
++import type { MenuCategory, MenuCategoryId, MenuItem } from "@/lib/types";
++import type { Locale } from "@/lib/i18n/locales";
++import type { Dictionary } from "@/app/[lang]/dictionaries";
++import { formatPrice } from "@/lib/cart/pricing";
++import { useCart } from "@/context/CartContext";
++import { ImageSlot } from "@/components/ui/ImageSlot";
++import { artForMenuItem } from "@/components/ui/FoodArt";
++import { ItemSheet } from "@/components/menu/ItemSheet";
++
++/**
++ * Kiosk-style ordering: segmented category control, a grid of product
++ * tiles, and an iOS bottom sheet for items that take extras.
++ */
++export function MenuKiosk({
++  categories,
++  lang,
++  dict,
++}: {
++  categories: MenuCategory[];
++  lang: Locale;
++  dict: Dictionary;
++}) {
++  const { addItem } = useCart();
++  const [activeId, setActiveId] = useState<MenuCategoryId>(categories[0].id);
++  const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
++  const [justAddedId, setJustAddedId] = useState<string | null>(null);
++
++  const active = categories.find((c) => c.id === activeId) ?? categories[0];
++
++  function handleTileTap(item: MenuItem) {
++    if (item.allowedExtraIds?.length) {
++      setSheetItem(item);
++      return;
++    }
++    addItem(item.id, 1, []);
++    setJustAddedId(item.id);
++    window.setTimeout(
++      () => setJustAddedId((prev) => (prev === item.id ? null : prev)),
++      1200
++    );
++  }
++
++  return (
++    <div>
++      <div
++        role="tablist"
++        aria-label={dict.menu.heading}
++        className="mx-auto flex w-full max-w-sm rounded-xl bg-slice-ink/[0.06] p-1"
++      >
++        {categories.map((category) => {
++          const selected = category.id === active.id;
++          return (
++            <button
++              key={category.id}
++              role="tab"
++              aria-selected={selected}
++              onClick={() => setActiveId(category.id)}
++              className={`flex-1 rounded-[10px] py-1.5 text-sm font-semibold transition-all duration-200 ${
++                selected
++                  ? "bg-slice-card text-slice-ink shadow-sm"
++                  : "text-slice-ink/50 hover:text-slice-ink/80"
++              }`}
++            >
++              {category.label[lang]}
++            </button>
++          );
++        })}
++      </div>
++
++      <div
++        key={active.id}
++        className="animate-grid-in mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
++      >
++        {active.items.map((item) => {
++          const art = artForMenuItem(item);
++          const added = justAddedId === item.id;
++          return (
++            <button
++              key={item.id}
++              type="button"
++              onClick={() => handleTileTap(item)}
++              className="hairline group flex flex-col items-center gap-2.5 rounded-2xl bg-slice-card p-4 text-center shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-float active:scale-[0.97]"
++            >
++              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-slice-paper transition-transform duration-300 group-hover:scale-105">
++                <ImageSlot
++                  src={item.image}
++                  alt=""
++                  art={art.kind}
++                  accent={art.accent}
++                  sizes="96px"
++                  className="h-20 w-20 rounded-full"
++                />
++              </span>
++              <span className="min-h-10 text-sm font-semibold leading-tight text-slice-ink">
++                {item.name[lang]}
++              </span>
++              <span className="flex w-full items-center justify-between">
++                <span className="text-sm font-bold text-slice-ink/70">
++                  {formatPrice(item.price)}
++                </span>
++                <span
++                  aria-hidden="true"
++                  className={`flex h-7 w-7 items-center justify-center rounded-full text-slice-paper transition-colors ${
++                    added ? "bg-green-600" : "bg-slice-red group-hover:bg-slice-red-deep"
++                  }`}
++                >
++                  {added ? (
++                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
++                      <path d="M4 10.5l4 4 8-8" />
++                    </svg>
++                  ) : (
++                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
++                      <path d="M10 4v12M4 10h12" />
++                    </svg>
++                  )}
++                </span>
++              </span>
++            </button>
++          );
++        })}
++      </div>
++
++      {sheetItem && (
++        <ItemSheet
++          item={sheetItem}
++          lang={lang}
++          dict={dict}
++          onClose={() => setSheetItem(null)}
++        />
++      )}
++    </div>
++  );
++}
+diff --git a/components/ui/FoodArt.tsx b/components/ui/FoodArt.tsx
+new file mode 100644
+index 0000000..edd7b6d
+--- /dev/null
++++ b/components/ui/FoodArt.tsx
+@@ -0,0 +1,181 @@
++import type { MenuItem } from "@/lib/types";
++
++export type FoodArtKind =
++  | "pizza"
++  | "soda"
++  | "water"
++  | "cheese"
++  | "ham"
++  | "pepperoni"
++  | "mushroom";
++
++const SODA_COLORS: Record<string, string> = {
++  "pije-coca-cola": "#4a2c1a",
++  "pije-coca-cola-zero": "#2b2422",
++  "pije-fanta": "#f28c28",
++  "pije-sprite": "#b7d96a",
++};
++
++/** Picks the right illustration for a menu item based on its id/category. */
++export function artForMenuItem(item: MenuItem): {
++  kind: FoodArtKind;
++  accent?: string;
++} {
++  if (item.category === "pica") return { kind: "pizza" };
++  if (item.category === "pije") {
++    if (item.id.includes("uje")) return { kind: "water" };
++    return { kind: "soda", accent: SODA_COLORS[item.id] ?? "#4a2c1a" };
++  }
++  switch (item.id) {
++    case "extra-proshute":
++      return { kind: "ham" };
++    case "extra-peperoni":
++      return { kind: "pepperoni" };
++    case "extra-kerpudha":
++      return { kind: "mushroom" };
++    default:
++      return { kind: "cheese" };
++  }
++}
++
++function PizzaTop() {
++  return (
++    <>
++      <circle cx="50" cy="50" r="46" fill="#e2a84f" />
++      <circle cx="50" cy="50" r="46" fill="none" stroke="#c9883a" strokeWidth="2" opacity="0.5" />
++      <circle cx="50" cy="50" r="38" fill="#d0432c" />
++      <circle cx="50" cy="50" r="35" fill="#f3cf7f" />
++      <circle cx="38" cy="40" r="7.5" fill="#bf332e" />
++      <circle cx="38" cy="40" r="5.7" fill="#a92320" />
++      <circle cx="62" cy="44" r="7.5" fill="#bf332e" />
++      <circle cx="62" cy="44" r="5.7" fill="#a92320" />
++      <circle cx="48" cy="64" r="7.5" fill="#bf332e" />
++      <circle cx="48" cy="64" r="5.7" fill="#a92320" />
++      <path
++        d="M60 60 q5 -6 12 -4 q-2 8 -10 8 q-2 0 -2 -4z"
++        fill="#4c7a3f"
++      />
++      <path
++        d="M33 55 q-6 3 -6 9 q7 1 10 -5 q1 -3 -4 -4z"
++        fill="#4c7a3f"
++      />
++      <circle cx="52" cy="32" r="2.4" fill="#e8b95d" />
++      <circle cx="30" cy="47" r="2" fill="#e8b95d" />
++      <circle cx="66" cy="58" r="2" fill="#e8b95d" />
++    </>
++  );
++}
++
++function Soda({ accent }: { accent: string }) {
++  return (
++    <>
++      {/* straw */}
++      <rect x="56" y="6" width="5.5" height="26" rx="2.7" transform="rotate(14 58 18)" fill="#ab1a18" />
++      {/* glass */}
++      <path d="M30 24 L36 84 a7 7 0 0 0 7 6 h14 a7 7 0 0 0 7 -6 L70 24 Z" fill="#ffffff" opacity="0.55" />
++      {/* liquid */}
++      <path d="M33.5 34 L38.6 82.5 a5.5 5.5 0 0 0 5.4 4.5 h12 a5.5 5.5 0 0 0 5.4 -4.5 L66.5 34 Z" fill={accent} />
++      {/* bubbles + shine */}
++      <circle cx="45" cy="52" r="2" fill="#ffffff" opacity="0.5" />
++      <circle cx="55" cy="64" r="1.6" fill="#ffffff" opacity="0.5" />
++      <circle cx="50" cy="42" r="1.4" fill="#ffffff" opacity="0.5" />
++      <path d="M37 30 L41.5 80" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
++      {/* rim */}
++      <path d="M30 24 h40" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" opacity="0.8" />
++    </>
++  );
++}
++
++function Water() {
++  return (
++    <>
++      <rect x="43" y="8" width="14" height="9" rx="2.5" fill="#5f9fd8" />
++      <path d="M44 17 h12 l3 10 v4 h-18 v-4 Z" fill="#cfe6f7" />
++      <rect x="33" y="30" width="34" height="60" rx="11" fill="#dbedfa" />
++      <rect x="33" y="48" width="34" height="16" fill="#ffffff" opacity="0.85" />
++      <rect x="38" y="51.5" width="16" height="3" rx="1.5" fill="#5f9fd8" />
++      <rect x="38" y="57" width="10" height="3" rx="1.5" fill="#a9cbe8" />
++      <path d="M39 34 q-2 22 0 50" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.7" />
++    </>
++  );
++}
++
++function Cheese() {
++  return (
++    <>
++      <path d="M10 68 L88 42 a10 10 0 0 1 2 8 L90 74 a4 4 0 0 1 -4 4 L16 78 a6 6 0 0 1 -6 -10 Z" fill="#f2c14e" />
++      <path d="M10 68 L88 42 a10 10 0 0 1 2 8 L12 76 a6 6 0 0 1 -2 -8 Z" fill="#f7d475" />
++      <circle cx="38" cy="66" r="4.5" fill="#e0a93c" />
++      <circle cx="58" cy="60" r="3.4" fill="#e0a93c" />
++      <circle cx="74" cy="64" r="2.6" fill="#e0a93c" />
++      <circle cx="24" cy="72" r="2.6" fill="#e0a93c" />
++    </>
++  );
++}
++
++function Ham() {
++  return (
++    <>
++      <ellipse cx="50" cy="54" rx="38" ry="28" fill="#f0a9b6" />
++      <ellipse cx="50" cy="54" rx="38" ry="28" fill="none" stroke="#e58ea0" strokeWidth="4" />
++      <ellipse cx="46" cy="51" rx="26" ry="18" fill="#f6c3cd" />
++      <ellipse cx="60" cy="60" rx="7" ry="5" fill="#fbdde3" />
++      <ellipse cx="36" cy="60" rx="4.5" ry="3.2" fill="#fbdde3" />
++    </>
++  );
++}
++
++function Pepperoni() {
++  return (
++    <>
++      <circle cx="36" cy="40" r="21" fill="#bf332e" />
++      <circle cx="36" cy="40" r="16.5" fill="#a92320" />
++      <circle cx="64" cy="58" r="24" fill="#cb423a" />
++      <circle cx="64" cy="58" r="19" fill="#b12d26" />
++      <circle cx="58" cy="52" r="2.2" fill="#d9695f" />
++      <circle cx="70" cy="62" r="2.6" fill="#d9695f" />
++      <circle cx="63" cy="66" r="1.8" fill="#d9695f" />
++      <circle cx="31" cy="35" r="2" fill="#d9695f" />
++      <circle cx="41" cy="44" r="2.3" fill="#d9695f" />
++    </>
++  );
++}
++
++function Mushroom() {
++  return (
++    <>
++      <path d="M50 18 c-20 0 -32 13 -32 26 a6 6 0 0 0 6 6 h52 a6 6 0 0 0 6 -6 c0 -13 -12 -26 -32 -26 Z" fill="#c89a6b" />
++      <circle cx="34" cy="34" r="3.4" fill="#e9cfa9" />
++      <circle cx="56" cy="28" r="2.8" fill="#e9cfa9" />
++      <circle cx="66" cy="38" r="3" fill="#e9cfa9" />
++      <path d="M42 50 h16 l-2.5 26 a6 6 0 0 1 -6 5 a6 6 0 0 1 -6 -5 Z" fill="#f5e4cd" />
++      <path d="M42 50 h16" stroke="#e2c9a4" strokeWidth="3" strokeLinecap="round" />
++    </>
++  );
++}
++
++/**
++ * Flat food illustrations used in menu tiles, sheets and offers until real
++ * photography is dropped into lib/menu.ts `image` fields.
++ */
++export function FoodArt({
++  kind,
++  accent = "#4a2c1a",
++  className,
++}: {
++  kind: FoodArtKind;
++  accent?: string;
++  className?: string;
++}) {
++  return (
++    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
++      {kind === "pizza" && <PizzaTop />}
++      {kind === "soda" && <Soda accent={accent} />}
++      {kind === "water" && <Water />}
++      {kind === "cheese" && <Cheese />}
++      {kind === "ham" && <Ham />}
++      {kind === "pepperoni" && <Pepperoni />}
++      {kind === "mushroom" && <Mushroom />}
++    </svg>
++  );
++}
+diff --git a/components/ui/ImageSlot.tsx b/components/ui/ImageSlot.tsx
+index 840febb..4d9624e 100644
+--- a/components/ui/ImageSlot.tsx
++++ b/components/ui/ImageSlot.tsx
+@@ -1,45 +1,46 @@
+ import Image from "next/image";
+-import { PizzaPlaceholderArt } from "@/components/ui/PizzaPlaceholderArt";
++import { FoodArt, type FoodArtKind } from "@/components/ui/FoodArt";
+ 
+ type ImageSlotProps = {
+   src?: string;
+   alt: string;
+-  shape?: "whole" | "slice";
++  art: FoodArtKind;
++  accent?: string;
+   className?: string;
+   sizes?: string;
+-  priority?: boolean;
++  preload?: boolean;
+ };
+ 
+ /**
+  * Renders a real photo (next/image) when `src` is given, otherwise falls
+- * back to branded placeholder art — same sizing/aspect either way, so
+- * dropping in real photography later requires no layout changes.
++ * back to the flat food illustration — same sizing either way, so dropping
++ * in real photography later requires no layout changes.
+  */
+ export function ImageSlot({
+   src,
+   alt,
+-  shape = "whole",
++  art,
++  accent,
+   className = "",
+   sizes,
+-  priority,
++  preload,
+ }: ImageSlotProps) {
+   return (
+-    <div
+-      className={`relative overflow-hidden bg-slice-paper ${className}`}
+-    >
++    <div className={`relative overflow-hidden ${className}`}>
+       {src ? (
+         <Image
+           src={src}
+           alt={alt}
+           fill
+           sizes={sizes ?? "100vw"}
+-          priority={priority}
++          preload={preload}
+           className="object-cover"
+         />
+       ) : (
+-        <PizzaPlaceholderArt
+-          shape={shape}
+-          className="absolute inset-0 h-full w-full p-4"
++        <FoodArt
++          kind={art}
++          accent={accent}
++          className="absolute inset-0 h-full w-full p-2"
+         />
+       )}
+     </div>
+diff --git a/components/ui/Logo.tsx b/components/ui/Logo.tsx
+new file mode 100644
+index 0000000..a0ced54
+--- /dev/null
++++ b/components/ui/Logo.tsx
+@@ -0,0 +1,41 @@
++/**
++ * Brand mark: an iOS-app-icon style tile with a pizza slice glyph, plus an
++ * optional wordmark. Pure SVG so it stays crisp at any size.
++ */
++export function LogoMark({ className = "h-9 w-9" }: { className?: string }) {
++  return (
++    <svg viewBox="0 0 44 44" className={className} aria-hidden="true">
++      <defs>
++        <linearGradient id="logo-tile" x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0" stopColor="#c22320" />
++          <stop offset="1" stopColor="#961412" />
++        </linearGradient>
++      </defs>
++      <rect width="44" height="44" rx="11.5" fill="url(#logo-tile)" />
++      {/* slice: crust arc + body pointing down */}
++      <path
++        d="M22 37 L9.5 15.5 A 24.4 24.4 0 0 1 34.5 15.5 Z"
++        fill="var(--color-slice-paper)"
++      />
++      <path
++        d="M8.4 13.6 a 26.8 26.8 0 0 1 27.2 0 l -1.9 3.3 a 24.4 24.4 0 0 0 -23.4 0 Z"
++        fill="var(--color-slice-cream)"
++      />
++      <circle cx="22" cy="22" r="2.6" fill="#b0080c" />
++      <circle cx="16.5" cy="18.5" r="2.1" fill="#b0080c" />
++      <circle cx="27.5" cy="18.5" r="2.1" fill="#b0080c" />
++      <circle cx="22" cy="29.5" r="1.9" fill="#b0080c" />
++    </svg>
++  );
++}
++
++export function Logo({ className = "" }: { className?: string }) {
++  return (
++    <span className={`flex items-center gap-2.5 ${className}`}>
++      <LogoMark />
++      <span className="text-[17px] font-bold leading-none tracking-tight text-slice-ink">
++        Slice House
++      </span>
++    </span>
++  );
++}
+diff --git a/components/ui/PizzaPlaceholderArt.tsx b/components/ui/PizzaPlaceholderArt.tsx
+deleted file mode 100644
+index a49979f..0000000
+--- a/components/ui/PizzaPlaceholderArt.tsx
++++ /dev/null
+@@ -1,88 +0,0 @@
+-type PizzaPlaceholderArtProps = {
+-  shape?: "whole" | "slice";
+-  className?: string;
+-};
+-
+-/**
+- * Branded placeholder art standing in for real food photography. Drop a real
+- * photo into the relevant `image` field in lib/menu.ts / lib/offers.ts and
+- * <ImageSlot> will render it instead automatically.
+- */
+-export function PizzaPlaceholderArt({
+-  shape = "whole",
+-  className,
+-}: PizzaPlaceholderArtProps) {
+-  if (shape === "slice") {
+-    return (
+-      <svg
+-        viewBox="0 0 100 100"
+-        className={className}
+-        role="img"
+-        aria-label=""
+-        aria-hidden="true"
+-      >
+-        <path
+-          d="M50 8 L92 88 A46 46 0 0 1 8 88 Z"
+-          fill="var(--color-slice-red)"
+-        />
+-        <path
+-          d="M50 8 L92 88 A46 46 0 0 1 8 88 Z"
+-          fill="none"
+-          stroke="var(--color-slice-cream)"
+-          strokeWidth="6"
+-        />
+-        <circle cx="42" cy="52" r="6" fill="var(--color-slice-red-deep)" />
+-        <circle cx="60" cy="62" r="6" fill="var(--color-slice-red-deep)" />
+-        <circle cx="50" cy="76" r="6" fill="var(--color-slice-red-deep)" />
+-        <circle cx="34" cy="70" r="4" fill="var(--color-slice-paper)" />
+-        <circle cx="66" cy="46" r="4" fill="var(--color-slice-paper)" />
+-      </svg>
+-    );
+-  }
+-
+-  return (
+-    <svg
+-      viewBox="0 0 100 100"
+-      className={className}
+-      role="img"
+-      aria-label=""
+-      aria-hidden="true"
+-    >
+-      <circle cx="50" cy="50" r="46" fill="var(--color-slice-cream)" />
+-      <circle cx="50" cy="50" r="40" fill="var(--color-slice-red)" />
+-      <circle
+-        cx="50"
+-        cy="50"
+-        r="40"
+-        fill="none"
+-        stroke="var(--color-slice-red-deep)"
+-        strokeWidth="1"
+-        opacity="0.4"
+-      />
+-      {[
+-        [50, 28],
+-        [68, 38],
+-        [70, 58],
+-        [55, 70],
+-        [34, 66],
+-        [28, 46],
+-        [44, 50],
+-      ].map(([cx, cy], i) => (
+-        <circle
+-          key={i}
+-          cx={cx}
+-          cy={cy}
+-          r={i % 2 === 0 ? 5 : 4}
+-          fill="var(--color-slice-red-deep)"
+-        />
+-      ))}
+-      {[
+-        [40, 40],
+-        [60, 50],
+-        [45, 62],
+-      ].map(([cx, cy], i) => (
+-        <circle key={`c-${i}`} cx={cx} cy={cy} r={3.5} fill="var(--color-slice-paper)" />
+-      ))}
+-    </svg>
+-  );
+-}
+diff --git a/components/ui/Reveal.tsx b/components/ui/Reveal.tsx
+new file mode 100644
+index 0000000..29e7412
+--- /dev/null
++++ b/components/ui/Reveal.tsx
+@@ -0,0 +1,50 @@
++"use client";
++
++import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
++
++/**
++ * On-scroll reveal: children fade + rise in the first time they enter the
++ * viewport. Styling lives in globals.css (.reveal / .reveal-in), which also
++ * disables the effect under prefers-reduced-motion.
++ */
++export function Reveal({
++  children,
++  delay = 0,
++  className = "",
++  as: Tag = "div",
++}: {
++  children: ReactNode;
++  /** Stagger delay in milliseconds. */
++  delay?: number;
++  className?: string;
++  as?: "div" | "section" | "li" | "span";
++}) {
++  const ref = useRef<HTMLElement | null>(null);
++
++  useEffect(() => {
++    const node = ref.current;
++    if (!node) return;
++    const observer = new IntersectionObserver(
++      ([entry]) => {
++        if (entry.isIntersecting) {
++          node.classList.add("reveal-in");
++          observer.disconnect();
++        }
++      },
++      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
++    );
++    observer.observe(node);
++    return () => observer.disconnect();
++  }, []);
++
++  return (
++    <Tag
++      // eslint-disable-next-line @typescript-eslint/no-explicit-any
++      ref={ref as any}
++      className={`reveal ${className}`}
++      style={{ "--reveal-delay": `${delay}ms` } as CSSProperties}
++    >
++      {children}
++    </Tag>
++  );
++}
+diff --git a/dictionaries/en.json b/dictionaries/en.json
+index be2993f..87b5bdf 100644
+--- a/dictionaries/en.json
++++ b/dictionaries/en.json
+@@ -1,69 +1,74 @@
+ {
+   "meta": {
+-    "title": "Slice House — The Taste That's Remembered",
+-    "description": "Handmade artisanal pizza, made with passion. Order online from Slice House — no account, no online payment."
++    "title": "Slice House — Handmade pizza in Mitrovica",
++    "description": "Handmade pizza in Mitrovica. Order online — no account, no online payment."
+   },
+   "nav": {
+     "offers": "Offers",
+     "menu": "Menu",
+     "game": "Lucky Wheel",
+-    "contact": "Contact",
++    "contact": "Find Us",
+     "cart": "Cart"
+   },
+   "hero": {
+-    "eyebrow": "Artisanal pizza, made with passion",
++    "open": "Open daily 17:00 – 23:00",
+     "title": "The taste that's remembered.",
+-    "subtitle": "Fresh ingredients every day, carefully worked dough, and 100% natural olive oil. Order online — we'll handle the rest.",
++    "subtitle": "Handmade pizza, hot from the oven in Mitrovica.",
+     "ctaPrimary": "Order Now",
+-    "ctaSecondary": "View Menu",
+-    "badgeIngredients": "Fresh ingredients daily",
+-    "badgeDough": "Carefully handmade dough",
+-    "badgeOil": "100% natural olive oil"
++    "ctaSecondary": "See the Menu"
+   },
+   "offers": {
+-    "heading": "This Month's Offers",
+-    "subheading": "Limited-time deals — grab them before they're gone.",
+-    "empty": "No active offers right now. Check out our full menu below!",
+-    "addToOrder": "Add to Order",
++    "heading": "This Month",
++    "empty": "No offers right now — the full menu is below.",
++    "addToOrder": "Add",
+     "until": "Until {date}"
+   },
+   "menu": {
+     "heading": "Menu",
+-    "subheading": "Our full menu, right here — no PDF, just add and order.",
+     "categories": {
+       "pica": "Pizza",
+       "pije": "Drinks",
+       "shtesa": "Extras"
+     },
+-    "addToCart": "Add to Cart",
+-    "added": "Added!",
+-    "extrasLabel": "Extras (optional)",
++    "addToCart": "Add",
++    "added": "Added",
++    "extrasLabel": "Extras",
+     "quantity": "Quantity",
+-    "from": "from"
++    "addForPrice": "Add to Order · {price}",
++    "close": "Close"
+   },
+   "wheel": {
+-    "heading": "Can't decide what to order?",
+-    "subheading": "Spin the Lucky Wheel and let fate pick your next pizza.",
++    "heading": "Can't decide?",
++    "subheading": "Spin the wheel — fate picks your pizza.",
+     "spinButton": "Spin the Wheel",
+     "spinning": "Spinning…",
+-    "resultPrefix": "Fate picked:",
++    "resultPrefix": "Fate picked",
+     "addToOrder": "Add to Order",
+     "spinAgain": "Spin Again"
+   },
++  "contact": {
++    "heading": "Find Us",
++    "addressLabel": "Address",
++    "phoneLabel": "Phone",
++    "hoursLabel": "Hours",
++    "hoursValue": "17:00 – 23:00, every day",
++    "directions": "Get Directions",
++    "mapTitle": "Slice House on the map"
++  },
+   "cart": {
+     "heading": "Your Cart",
+     "empty": "Your cart is empty.",
+-    "browseMenu": "Browse Menu",
++    "browseMenu": "Browse the Menu",
+     "remove": "Remove",
+     "extras": "Extras",
+-    "subtotal": "Subtotal",
+-    "checkout": "Continue to Checkout",
+-    "continueShopping": "Continue Shopping"
++    "subtotal": "Total",
++    "checkout": "Checkout",
++    "continueShopping": "Keep Ordering"
+   },
+   "checkout": {
+-    "heading": "Complete Your Order",
+-    "subheading": "Fill in your details — we'll call you to confirm.",
+-    "orderSummary": "Order Summary",
++    "heading": "Your Order",
++    "subheading": "We'll call you to confirm.",
++    "orderSummary": "Summary",
+     "fields": {
+       "fullName": "Full name",
+       "phone": "Phone number",
+@@ -79,17 +84,19 @@
+       "notes": "Any special requests?"
+     },
+     "useLocation": "Use my location",
+-    "locating": "Finding your location…",
+-    "locationSet": "Location set ✓",
+-    "locationError": "Couldn't find your location. Please type your address instead.",
+-    "previewRoute": "Preview the route from us to you",
++    "locating": "Locating…",
++    "locationSet": "Location set",
++    "locationError": "Couldn't find your location. Please type your address.",
++    "previewRoute": "Preview route",
++    "hideRoute": "Hide route",
++    "routeTitle": "Route from Slice House to you",
+     "submit": "Send Order",
+     "submitting": "Sending…",
+-    "submitError": "Something went wrong. Try again or call us directly.",
++    "submitError": "Something went wrong. Try again or call us.",
+     "success": {
+-      "title": "Order received!",
+-      "message": "Thank you! We'll call you shortly to confirm your order.",
+-      "callUs": "Questions? Call us directly:"
++      "title": "Order received",
++      "message": "Thank you! We'll call you shortly to confirm.",
++      "callUs": "Questions? Call us:"
+     },
+     "errors": {
+       "fullName": "Please enter your full name",
+@@ -100,10 +107,6 @@
+     }
+   },
+   "footer": {
+-    "hours": "Hours",
+-    "hoursValue": "17:00 – 23:00",
+-    "callUs": "Call Us",
+-    "address": "Address",
+     "rights": "All rights reserved."
+   },
+   "common": {
+diff --git a/dictionaries/sq.json b/dictionaries/sq.json
+index 3bee153..07a1918 100644
+--- a/dictionaries/sq.json
++++ b/dictionaries/sq.json
+@@ -1,69 +1,74 @@
+ {
+   "meta": {
+-    "title": "Slice House — Shija që mbahet mend",
+-    "description": "Pica artizanale, e bërë me pasion. Porosit online nga Slice House — pa regjistrim, pa pagesë online."
++    "title": "Slice House — Pica të bëra me dorë në Mitrovicë",
++    "description": "Pica të bëra me dorë në Mitrovicë. Porosit online — pa regjistrim, pa pagesë online."
+   },
+   "nav": {
+     "offers": "Ofertat",
+     "menu": "Menuja",
+     "game": "Rrota e Fatit",
+-    "contact": "Kontakti",
++    "contact": "Na Gjej",
+     "cart": "Shporta"
+   },
+   "hero": {
+-    "eyebrow": "Pica artizanale, e bërë me pasion",
++    "open": "Hapur çdo ditë 17:00 – 23:00",
+     "title": "Shija që mbahet mend.",
+-    "subtitle": "Përbërës të freskët çdo ditë, brumë i punuar me kujdes dhe vaj ulliri 100% natyral. Porosit online — ne bëjmë pjesën tjetër.",
++    "subtitle": "Pica të bëra me dorë, të nxehta nga furra në Mitrovicë.",
+     "ctaPrimary": "Porosit Tani",
+-    "ctaSecondary": "Shiko Menunë",
+-    "badgeIngredients": "Përbërës të freskët çdo ditë",
+-    "badgeDough": "Brumë i punuar me kujdes",
+-    "badgeOil": "Vaj ulliri 100% natyral"
++    "ctaSecondary": "Shiko Menunë"
+   },
+   "offers": {
+-    "heading": "Ofertat e Muajit",
+-    "subheading": "Oferta të kufizuara në kohë — shijoji para se të mbarojnë.",
+-    "empty": "Nuk ka oferta aktive për momentin. Kontrollo menunë tonë të plotë më poshtë!",
+-    "addToOrder": "Shto në Porosi",
++    "heading": "Këtë Muaj",
++    "empty": "S'ka oferta për momentin — menuja e plotë është më poshtë.",
++    "addToOrder": "Shto",
+     "until": "Deri më {date}"
+   },
+   "menu": {
+     "heading": "Menuja",
+-    "subheading": "E gjithë menuja jonë, direkt këtu — jo PDF, thjesht shto dhe porosit.",
+     "categories": {
+       "pica": "Pica",
+       "pije": "Pije",
+       "shtesa": "Shtesa"
+     },
+-    "addToCart": "Shto në Shportë",
+-    "added": "U shtua!",
+-    "extrasLabel": "Shtesa (opsionale)",
++    "addToCart": "Shto",
++    "added": "U shtua",
++    "extrasLabel": "Shtesa",
+     "quantity": "Sasia",
+-    "from": "nga"
++    "addForPrice": "Shto në Porosi · {price}",
++    "close": "Mbyll"
+   },
+   "wheel": {
+     "heading": "Nuk di çfarë të zgjedhësh?",
+-    "subheading": "Rrotullo Rrotën e Fatit dhe le fati të zgjedhë picën tënde të radhës.",
++    "subheading": "Rrotulloje rrotën — fati zgjedh picën.",
+     "spinButton": "Rrotullo Rrotën",
+-    "spinning": "Duke rrotulluar…",
+-    "resultPrefix": "Fati zgjodhi:",
++    "spinning": "Duke u rrotulluar…",
++    "resultPrefix": "Fati zgjodhi",
+     "addToOrder": "Shto në Porosi",
+     "spinAgain": "Rrotullo Përsëri"
+   },
++  "contact": {
++    "heading": "Na Gjej",
++    "addressLabel": "Adresa",
++    "phoneLabel": "Telefoni",
++    "hoursLabel": "Orari",
++    "hoursValue": "17:00 – 23:00, çdo ditë",
++    "directions": "Merr Udhëzimet",
++    "mapTitle": "Slice House në hartë"
++  },
+   "cart": {
+     "heading": "Shporta Jote",
+     "empty": "Shporta është bosh.",
+     "browseMenu": "Shiko Menunë",
+     "remove": "Hiq",
+     "extras": "Shtesa",
+-    "subtotal": "Nëntotali",
+-    "checkout": "Vazhdo te Porosia",
+-    "continueShopping": "Vazhdo Blerjen"
++    "subtotal": "Totali",
++    "checkout": "Porosit",
++    "continueShopping": "Vazhdo Porosinë"
+   },
+   "checkout": {
+-    "heading": "Përfundo Porosinë",
+-    "subheading": "Plotëso të dhënat e tua — do të të telefonojmë për konfirmim.",
+-    "orderSummary": "Përmbledhja e Porosisë",
++    "heading": "Porosia Jote",
++    "subheading": "Do të të telefonojmë për konfirmim.",
++    "orderSummary": "Përmbledhja",
+     "fields": {
+       "fullName": "Emri i plotë",
+       "phone": "Numri i telefonit",
+@@ -79,17 +84,19 @@
+       "notes": "Ndonjë kërkesë e veçantë?"
+     },
+     "useLocation": "Përdor lokacionin tim",
+-    "locating": "Duke gjetur lokacionin…",
+-    "locationSet": "Lokacioni u caktua ✓",
++    "locating": "Duke u gjetur…",
++    "locationSet": "Lokacioni u caktua",
+     "locationError": "Nuk u gjend lokacioni. Shkruaj adresën manualisht.",
+-    "previewRoute": "Shiko rrugën nga ne te ti",
++    "previewRoute": "Shiko rrugën",
++    "hideRoute": "Fshih rrugën",
++    "routeTitle": "Rruga nga Slice House deri te ti",
+     "submit": "Dërgo Porosinë",
+     "submitting": "Duke dërguar…",
+-    "submitError": "Diçka shkoi keq. Provo përsëri ose na telefono direkt.",
++    "submitError": "Diçka shkoi keq. Provo përsëri ose na telefono.",
+     "success": {
+-      "title": "Porosia u pranua!",
+-      "message": "Faleminderit! Do të të telefonojmë shpejt për të konfirmuar porosinë.",
+-      "callUs": "Nëse ke pyetje, na telefono direkt:"
++      "title": "Porosia u pranua",
++      "message": "Faleminderit! Do të të telefonojmë shpejt për konfirmim.",
++      "callUs": "Pyetje? Na telefono:"
+     },
+     "errors": {
+       "fullName": "Shkruaj emrin e plotë",
+@@ -100,10 +107,6 @@
+     }
+   },
+   "footer": {
+-    "hours": "Orari",
+-    "hoursValue": "17:00 – 23:00",
+-    "callUs": "Na Telefono",
+-    "address": "Adresa",
+     "rights": "Të gjitha të drejtat e rezervuara."
+   },
+   "common": {
+diff --git a/lib/config.ts b/lib/config.ts
+index 65255b6..f7a7677 100644
+--- a/lib/config.ts
++++ b/lib/config.ts
+@@ -4,11 +4,11 @@ export const SHOP = {
+   phoneHref: "tel:+38349123456",
+   hoursFrom: "17:00",
+   hoursTo: "23:00",
+-  // PLACEHOLDER — replace with the real pickup address/coordinates before launch.
+   address:
+-    process.env.NEXT_PUBLIC_SHOP_ADDRESS ?? "REPLACE_ME, Prishtinë, Kosovë",
+-  lat: Number(process.env.NEXT_PUBLIC_SHOP_LAT ?? 42.6629),
+-  lng: Number(process.env.NEXT_PUBLIC_SHOP_LNG ?? 21.1655),
++    process.env.NEXT_PUBLIC_SHOP_ADDRESS ??
++    "37-5 Mosine Kokalari, Mitrovica e Veriut 40000",
++  lat: Number(process.env.NEXT_PUBLIC_SHOP_LAT ?? 42.874094),
++  lng: Number(process.env.NEXT_PUBLIC_SHOP_LNG ?? 20.858669),
+ } as const;
+ 
+ export const OWNER_EMAIL =
+diff --git a/lib/directions.ts b/lib/directions.ts
+deleted file mode 100644
+index 6881701..0000000
+--- a/lib/directions.ts
++++ /dev/null
+@@ -1,19 +0,0 @@
+-type Point = { lat: number; lng: number } | string;
+-
+-function pointParam(point: Point): string {
+-  return typeof point === "string" ? point : `${point.lat},${point.lng}`;
+-}
+-
+-/**
+- * Builds a Google Maps driving-directions deep link. No API key or billing
+- * required — just a URL. Works in both the Google Maps app (mobile) and web.
+- */
+-export function buildDirectionsUrl(origin: Point, destination: Point): string {
+-  const params = new URLSearchParams({
+-    api: "1",
+-    origin: pointParam(origin),
+-    destination: pointParam(destination),
+-    travelmode: "driving",
+-  });
+-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+-}
+diff --git a/package-lock.json b/package-lock.json
+index f194bbf..4991247 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -22,6 +22,7 @@
+         "@types/react-dom": "^19",
+         "eslint": "^9",
+         "eslint-config-next": "16.2.10",
++        "playwright": "^1.61.1",
+         "tailwindcss": "^4",
+         "typescript": "^5"
+       }
+@@ -615,9 +616,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -634,9 +632,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -653,9 +648,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -672,9 +664,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -691,9 +680,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -710,9 +696,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -729,9 +712,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -748,9 +728,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -767,9 +744,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -792,9 +766,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -817,9 +788,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -842,9 +810,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -867,9 +832,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -892,9 +854,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -917,9 +876,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -942,9 +898,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1160,9 +1113,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1179,9 +1129,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1198,9 +1145,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1217,9 +1161,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1464,9 +1405,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1484,9 +1422,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1504,9 +1439,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1524,9 +1456,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2077,9 +2006,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2094,9 +2020,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2111,9 +2034,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2128,9 +2048,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2145,9 +2062,6 @@
+         "ppc64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2162,9 +2076,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2179,9 +2090,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2196,9 +2104,6 @@
+         "s390x"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2213,9 +2118,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2230,9 +2132,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3810,6 +3709,21 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/fsevents": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
++      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
+     "node_modules/function-bind": {
+       "version": "1.1.2",
+       "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+@@ -4923,9 +4837,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -4947,9 +4858,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -4971,9 +4879,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -4995,9 +4900,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5574,6 +5476,38 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
++    "node_modules/playwright": {
++      "version": "1.61.1",
++      "resolved": "https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz",
++      "integrity": "sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright-core": "1.61.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "optionalDependencies": {
++        "fsevents": "2.3.2"
++      }
++    },
++    "node_modules/playwright-core": {
++      "version": "1.61.1",
++      "resolved": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz",
++      "integrity": "sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "playwright-core": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/possible-typed-array-names": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/possible-typed-array-names/-/possible-typed-array-names-1.1.0.tgz",
+diff --git a/package.json b/package.json
+index 161861c..91ec92b 100644
+--- a/package.json
++++ b/package.json
+@@ -23,6 +23,7 @@
+     "@types/react-dom": "^19",
+     "eslint": "^9",
+     "eslint-config-next": "16.2.10",
++    "playwright": "^1.61.1",
+     "tailwindcss": "^4",
+     "typescript": "^5"
+   }
+-- 
+2.43.0
+

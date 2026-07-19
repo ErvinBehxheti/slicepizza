@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import "@/app/globals.css";
 import { hasLocale, getDictionary } from "@/app/[lang]/dictionaries";
@@ -17,12 +17,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-brand-serif",
-  subsets: ["latin", "latin-ext"],
-  style: ["italic", "normal"],
 });
 
 export async function generateStaticParams() {
@@ -52,12 +46,12 @@ export default async function RootLayout({
   return (
     <html lang={lang}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-screen flex-col bg-slice-cream font-sans text-slice-ink antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col bg-slice-paper font-sans text-slice-ink antialiased`}
       >
         <CartProvider>
           <Header lang={lang} dict={dict} />
           <main className="flex-1">{children}</main>
-          <Footer dict={dict} />
+          <Footer lang={lang} dict={dict} />
           <StickyOrderBar lang={lang} label={dict.cart.checkout} />
         </CartProvider>
       </body>

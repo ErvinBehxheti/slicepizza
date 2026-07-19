@@ -1,14 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import { PIZZA_ITEMS } from "@/lib/menu";
 import { formatPrice } from "@/lib/cart/pricing";
 import { useCart } from "@/context/CartContext";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
+import { LogoMark } from "@/components/ui/Logo";
+import { Reveal } from "@/components/ui/Reveal";
 
-const SPIN_DURATION_MS = 3200;
+const SPIN_DURATION_MS = 3600;
 const EXTRA_SPINS = 5;
+const SIZE = 320;
+const C = SIZE / 2;
+const R = C - 6;
+
+// Warm red ramp — adjacent segments always differ, including at the wrap.
+const SEGMENT_COLORS = [
+  "#cd3a32",
+  "#b92a26",
+  "#a51f1c",
+  "#911512",
+  "#7d0d0b",
+  "#a51f1c",
+  "#b92a26",
+];
+
+function polar(angleDeg: number, radius: number): [number, number] {
+  const rad = (angleDeg * Math.PI) / 180;
+  return [C + radius * Math.cos(rad), C + radius * Math.sin(rad)];
+}
 
 export function PizzaWheel({
   lang,
@@ -21,134 +42,151 @@ export function PizzaWheel({
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [resultIndex, setResultIndex] = useState<number | null>(null);
+  const pendingIndex = useRef<number | null>(null);
 
   const count = PIZZA_ITEMS.length;
   const segment = 360 / count;
 
-  const wheelBackground = useMemo(() => {
-    const stops = PIZZA_ITEMS.map((_, i) => {
-      const color =
-        i % 2 === 0 ? "var(--color-slice-red)" : "var(--color-slice-red-deep)";
-      return `${color} ${i * segment}deg ${(i + 1) * segment}deg`;
-    }).join(", ");
-    return `conic-gradient(${stops})`;
-  }, [segment]);
-
   function spin() {
     if (spinning) return;
     const randomIndex = Math.floor(Math.random() * count);
-    const segmentCenter = randomIndex * segment + segment / 2;
-    const targetMod = (360 - segmentCenter) % 360;
-
+    // Rotate so the chosen segment's center lands under the top pointer.
+    const target = (360 - (randomIndex * segment + segment / 2)) % 360;
     setRotation((prev) => {
       const prevMod = ((prev % 360) + 360) % 360;
-      let delta = targetMod - prevMod;
+      let delta = target - prevMod;
       if (delta <= 0) delta += 360;
       return prev + delta + EXTRA_SPINS * 360;
     });
+    pendingIndex.current = randomIndex;
     setSpinning(true);
     setResultIndex(null);
-    window.setTimeout(() => {
-      setSpinning(false);
-      setResultIndex(randomIndex);
-    }, SPIN_DURATION_MS);
+  }
+
+  function handleSpinEnd() {
+    if (pendingIndex.current === null) return;
+    setResultIndex(pendingIndex.current);
+    pendingIndex.current = null;
+    setSpinning(false);
   }
 
   const result = resultIndex !== null ? PIZZA_ITEMS[resultIndex] : null;
 
   return (
-    <section
-      id="game"
-      className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6"
-    >
-      <h2 className="font-brand text-3xl italic text-slice-ink">
-        {dict.wheel.heading}
-      </h2>
-      <p className="mx-auto mt-2 max-w-md text-slice-ink/70">
-        {dict.wheel.subheading}
-      </p>
-
-      <div className="relative mx-auto mt-10 h-72 w-72 sm:h-80 sm:w-80">
-        <div
-          className="absolute left-1/2 top-0 z-10 h-0 w-0 -translate-x-1/2 -translate-y-1"
-          style={{
-            borderLeft: "12px solid transparent",
-            borderRight: "12px solid transparent",
-            borderTop: "20px solid var(--color-slice-ink)",
-          }}
-          aria-hidden="true"
-        />
-
-        <div
-          className="relative h-full w-full overflow-hidden rounded-full border-[10px] border-slice-cream shadow-xl shadow-slice-ink/20"
-          style={{
-            background: wheelBackground,
-            transform: `rotate(${rotation}deg)`,
-            transition: `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.17, 0.67, 0.16, 0.99)`,
-            backgroundImage: `${wheelBackground}, radial-gradient(circle, var(--color-slice-paper) 0 6px, transparent 7px)`,
-            backgroundSize: "100% 100%, 22px 22px",
-          }}
-        >
-          {PIZZA_ITEMS.map((item, i) => {
-            const midAngle = i * segment + segment / 2;
-            const label = item.name[lang].replace(/^Pizza\s+/i, "");
-            return (
-              <span
-                key={item.id}
-                className="absolute left-1/2 top-1/2 w-24 origin-left text-left text-[11px] font-bold uppercase tracking-wide text-slice-paper"
-                style={{
-                  transform: `rotate(${midAngle}deg) translateX(14px)`,
-                }}
-              >
-                {label}
-              </span>
-            );
-          })}
-
-          <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-slice-cream bg-slice-ink font-brand text-xs italic text-slice-paper">
-            slice
-          </div>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={spin}
-        disabled={spinning}
-        className="mt-8 rounded-full bg-slice-red px-8 py-3 text-sm font-bold text-slice-paper shadow-lg shadow-slice-red/20 transition-colors hover:bg-slice-red-deep disabled:opacity-60"
-      >
-        {spinning ? dict.wheel.spinning : dict.wheel.spinButton}
-      </button>
-
-      {result && !spinning && (
-        <div className="mx-auto mt-8 max-w-sm rounded-3xl border border-slice-ink/10 bg-slice-paper p-6">
-          <p className="text-sm font-medium text-slice-ink/60">
-            {dict.wheel.resultPrefix}
-          </p>
-          <p className="mt-1 font-brand text-2xl italic text-slice-red">
-            {result.name[lang]}
-          </p>
-          <p className="mt-1 text-sm text-slice-ink/60">
-            {formatPrice(result.price)}
-          </p>
-          <div className="mt-4 flex justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => addItem(result.id, 1, [])}
-              className="rounded-full bg-slice-red px-5 py-2 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
+    <section id="game" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+      <Reveal>
+        <div className="hairline grid items-center gap-8 rounded-[32px] bg-slice-card p-6 shadow-card sm:p-10 md:grid-cols-[auto_1fr] md:gap-14">
+          <div className="relative mx-auto w-[min(78vw,320px)]">
+            {/* pointer */}
+            <svg
+              viewBox="0 0 24 18"
+              className="absolute left-1/2 top-0 z-10 w-7 -translate-x-1/2 -translate-y-2 drop-shadow-sm"
+              aria-hidden="true"
             >
-              {dict.wheel.addToOrder}
-            </button>
+              <path d="M2 2 h20 l-10 15 Z" fill="var(--color-slice-ink)" />
+            </svg>
+
+            <div
+              onTransitionEnd={handleSpinEnd}
+              className="w-full"
+              style={{
+                transform: `rotate(${rotation}deg)`,
+                transition: `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.12, 0.68, 0.08, 1)`,
+              }}
+            >
+              <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full" aria-hidden="true">
+                <circle cx={C} cy={C} r={C} fill="var(--color-slice-paper)" />
+                {PIZZA_ITEMS.map((item, i) => {
+                  const start = i * segment - 90;
+                  const end = start + segment;
+                  const [x1, y1] = polar(start, R);
+                  const [x2, y2] = polar(end, R);
+                  const mid = start + segment / 2;
+                  const label = item.name[lang].replace(/^Pizza\s+/i, "");
+                  return (
+                    <g key={item.id}>
+                      <path
+                        d={`M${C} ${C} L${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} Z`}
+                        fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                        stroke="var(--color-slice-paper)"
+                        strokeWidth="2.5"
+                      />
+                      <g transform={`translate(${C} ${C}) rotate(${mid})`}>
+                        <text
+                          x={54}
+                          y={0}
+                          dominantBaseline="middle"
+                          textAnchor="start"
+                          fill="var(--color-slice-paper)"
+                          fontSize="12.5"
+                          fontWeight="700"
+                          letterSpacing="0.06em"
+                        >
+                          {label.toUpperCase()}
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })}
+                <circle cx={C} cy={C} r={40} fill="var(--color-slice-paper)" />
+              </svg>
+            </div>
+
+            {/* stationary hub */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <LogoMark className="h-14 w-14 drop-shadow-md" />
+            </div>
+          </div>
+
+          <div className="text-center md:text-left">
+            <h2 className="text-3xl font-bold tracking-tight text-slice-ink">
+              {dict.wheel.heading}
+            </h2>
+            <p className="mt-2 text-[15px] text-slice-ink/60">
+              {dict.wheel.subheading}
+            </p>
+
             <button
               type="button"
               onClick={spin}
-              className="rounded-full border border-slice-ink/20 px-5 py-2 text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
+              disabled={spinning}
+              className="mt-6 h-12 rounded-full bg-slice-red px-8 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.97] disabled:opacity-50"
             >
-              {dict.wheel.spinAgain}
+              {spinning ? dict.wheel.spinning : dict.wheel.spinButton}
             </button>
+
+            {result && (
+              <div className="animate-pop mt-6 rounded-2xl bg-slice-paper p-5 md:max-w-sm">
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-slice-ink/40">
+                  {dict.wheel.resultPrefix}
+                </p>
+                <p className="mt-1 flex items-baseline justify-center gap-2.5 text-xl font-bold tracking-tight text-slice-ink md:justify-start">
+                  {result.name[lang]}
+                  <span className="text-[15px] font-semibold text-slice-ink/50">
+                    {formatPrice(result.price)}
+                  </span>
+                </p>
+                <div className="mt-4 flex justify-center gap-2.5 md:justify-start">
+                  <button
+                    type="button"
+                    onClick={() => addItem(result.id, 1, [])}
+                    className="h-10 rounded-full bg-slice-red px-5 text-sm font-semibold text-slice-paper transition hover:bg-slice-red-deep active:scale-[0.97]"
+                  >
+                    {dict.wheel.addToOrder}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={spin}
+                    className="h-10 rounded-full bg-slice-ink/[0.06] px-5 text-sm font-semibold text-slice-ink transition hover:bg-slice-ink/10 active:scale-[0.97]"
+                  >
+                    {dict.wheel.spinAgain}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </Reveal>
     </section>
   );
 }

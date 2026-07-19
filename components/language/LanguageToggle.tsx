@@ -24,12 +24,13 @@ export function LanguageToggle({
   return (
     <Link
       href={href}
+      aria-label={label}
       onClick={() => {
         document.cookie = `NEXT_LOCALE=${target}; path=/; max-age=31536000`;
       }}
-      className="rounded-full border border-slice-ink/20 px-3 py-1.5 text-sm font-medium text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
+      className="flex h-9 items-center rounded-full bg-slice-ink/[0.06] px-3.5 text-[13px] font-bold text-slice-ink transition-colors hover:bg-slice-ink/10"
     >
-      {label}
+      {target.toUpperCase()}
     </Link>
   );
 }

@@ -3,7 +3,6 @@
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Offer } from "@/lib/types";
-import { ImageSlot } from "@/components/ui/ImageSlot";
 import { formatDayMonth, formatTemplate } from "@/lib/i18n/format";
 import { useCart } from "@/context/CartContext";
 
@@ -22,32 +21,27 @@ export function OfferCard({
   });
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-3xl border border-slice-ink/10 bg-slice-paper shadow-sm">
-      <ImageSlot
-        src={offer.image}
-        alt={offer.title[lang]}
-        shape="slice"
-        sizes="(min-width: 768px) 33vw, 90vw"
-        className="aspect-4/3 w-full"
-      />
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        {offer.badge && (
-          <span className="w-fit rounded-full bg-slice-red/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slice-red">
-            {offer.badge[lang]}
-          </span>
-        )}
-        <h3 className="text-lg font-semibold text-slice-ink">
-          {offer.title[lang]}
-        </h3>
-        <p className="flex-1 text-sm text-slice-ink/70">
-          {offer.description[lang]}
-        </p>
-        <p className="text-xs font-medium text-slice-ink/50">{untilLabel}</p>
+    <article className="hairline flex h-full w-[268px] flex-col gap-1.5 rounded-2xl bg-slice-card p-4 shadow-card">
+      {offer.badge && (
+        <span className="w-fit rounded-full bg-slice-red/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slice-red">
+          {offer.badge[lang]}
+        </span>
+      )}
+      <h3 className="text-[15px] font-semibold text-slice-ink">
+        {offer.title[lang]}
+      </h3>
+      <p className="line-clamp-2 flex-1 text-[13px] leading-snug text-slice-ink/60">
+        {offer.description[lang]}
+      </p>
+      <div className="mt-1 flex items-center justify-between">
+        <span className="text-[11px] font-medium text-slice-ink/40">
+          {untilLabel}
+        </span>
         {offer.linkedItemId && (
           <button
             type="button"
             onClick={() => addItem(offer.linkedItemId!, 1, [])}
-            className="mt-2 rounded-full bg-slice-red px-4 py-2 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
+            className="flex h-7 items-center rounded-full bg-slice-red px-3.5 text-xs font-bold text-slice-paper transition hover:bg-slice-red-deep active:scale-95"
           >
             {dict.offers.addToOrder}
           </button>

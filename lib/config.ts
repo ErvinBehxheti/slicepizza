@@ -4,11 +4,11 @@ export const SHOP = {
   phoneHref: "tel:+38349123456",
   hoursFrom: "17:00",
   hoursTo: "23:00",
-  // PLACEHOLDER — replace with the real pickup address/coordinates before launch.
   address:
-    process.env.NEXT_PUBLIC_SHOP_ADDRESS ?? "REPLACE_ME, Prishtinë, Kosovë",
-  lat: Number(process.env.NEXT_PUBLIC_SHOP_LAT ?? 42.6629),
-  lng: Number(process.env.NEXT_PUBLIC_SHOP_LNG ?? 21.1655),
+    process.env.NEXT_PUBLIC_SHOP_ADDRESS ??
+    "37-5 Mosine Kokalari, Mitrovica e Veriut 40000",
+  lat: Number(process.env.NEXT_PUBLIC_SHOP_LAT ?? 42.874094),
+  lng: Number(process.env.NEXT_PUBLIC_SHOP_LNG ?? 20.858669),
 } as const;
 
 export const OWNER_EMAIL =

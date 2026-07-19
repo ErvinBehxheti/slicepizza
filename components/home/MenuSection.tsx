@@ -1,7 +1,8 @@
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import { MENU_CATEGORIES } from "@/lib/menu";
-import { MenuCategoryBlock } from "@/components/menu/MenuCategoryBlock";
+import { MenuKiosk } from "@/components/menu/MenuKiosk";
+import { Reveal } from "@/components/ui/Reveal";
 
 export function MenuSection({
   lang,
@@ -11,23 +12,15 @@ export function MenuSection({
   dict: Dictionary;
 }) {
   return (
-    <section id="menu" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-      <div className="mb-8 max-w-xl">
-        <h2 className="font-brand text-3xl italic text-slice-ink">
+    <section id="menu" className="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+      <Reveal>
+        <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-slice-ink">
           {dict.menu.heading}
         </h2>
-        <p className="mt-2 text-slice-ink/70">{dict.menu.subheading}</p>
-      </div>
-      <div className="space-y-10">
-        {MENU_CATEGORIES.map((category) => (
-          <MenuCategoryBlock
-            key={category.id}
-            category={category}
-            lang={lang}
-            dict={dict}
-          />
-        ))}
-      </div>
+      </Reveal>
+      <Reveal delay={100}>
+        <MenuKiosk categories={MENU_CATEGORIES} lang={lang} dict={dict} />
+      </Reveal>
     </section>
   );
 }

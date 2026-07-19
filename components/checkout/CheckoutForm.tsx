@@ -8,11 +8,16 @@ import { SHOP } from "@/lib/config";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import { GeolocationButton } from "@/components/checkout/GeolocationButton";
-import { DirectionsLink } from "@/components/checkout/DirectionsLink";
+import { RoutePreview } from "@/components/checkout/RoutePreview";
 
 type FieldErrors = Partial<
   Record<"fullName" | "phone" | "email" | "address", string>
 >;
+
+const inputClass =
+  "mt-1.5 h-11 w-full rounded-xl border border-transparent bg-slice-ink/[0.045] px-4 text-[15px] text-slice-ink outline-none transition placeholder:text-slice-ink/35 focus:border-slice-red/50 focus:bg-slice-card";
+
+const labelClass = "block text-[13px] font-semibold text-slice-ink/70";
 
 export function CheckoutForm({
   lang,
@@ -40,15 +45,15 @@ export function CheckoutForm({
   if (success) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slice-red text-slice-paper">
-          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <div className="animate-pop mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slice-red text-slice-paper">
+          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="mt-6 font-brand text-3xl italic text-slice-ink">
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-slice-ink">
           {dict.checkout.success.title}
         </h1>
-        <p className="mt-3 text-slice-ink/70">{dict.checkout.success.message}</p>
+        <p className="mt-3 text-slice-ink/60">{dict.checkout.success.message}</p>
         <p className="mt-6 text-sm text-slice-ink/60">
           {dict.checkout.success.callUs}{" "}
           <a href={SHOP.phoneHref} className="font-semibold text-slice-red">
@@ -57,7 +62,7 @@ export function CheckoutForm({
         </p>
         <Link
           href={`/${lang}`}
-          className="mt-8 inline-block rounded-full border border-slice-ink/20 px-6 py-3 text-sm font-bold text-slice-ink transition-colors hover:border-slice-red hover:text-slice-red"
+          className="mt-8 inline-flex h-12 items-center rounded-full bg-slice-ink/[0.06] px-7 text-[15px] font-semibold text-slice-ink transition hover:bg-slice-ink/10"
         >
           {dict.common.orderNow}
         </Link>
@@ -68,13 +73,13 @@ export function CheckoutForm({
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
-        <h1 className="font-brand text-3xl italic text-slice-ink">
+        <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
           {dict.cart.heading}
         </h1>
         <p className="mt-3 text-slice-ink/60">{dict.cart.empty}</p>
         <Link
           href={`/${lang}#menu`}
-          className="mt-6 inline-block rounded-full bg-slice-red px-6 py-3 text-sm font-bold text-slice-paper transition-colors hover:bg-slice-red-deep"
+          className="mt-6 inline-flex h-12 items-center rounded-full bg-slice-red px-7 text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep"
         >
           {dict.cart.browseMenu}
         </Link>
@@ -135,14 +140,20 @@ export function CheckoutForm({
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <h1 className="font-brand text-3xl italic text-slice-ink">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slice-ink">
         {dict.checkout.heading}
       </h1>
-      <p className="mt-2 text-slice-ink/70">{dict.checkout.subheading}</p>
+      <p className="mt-1.5 text-[15px] text-slice-ink/60">
+        {dict.checkout.subheading}
+      </p>
 
-      <div className="mt-8 grid gap-10 md:grid-cols-[1fr_320px]">
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <div className="mt-8 grid gap-8 md:grid-cols-[1fr_320px]">
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="hairline space-y-5 rounded-[28px] bg-slice-card p-5 shadow-card sm:p-6"
+        >
           <input
             type="text"
             name="companyWebsite"
@@ -155,7 +166,7 @@ export function CheckoutForm({
           />
 
           <div>
-            <label className="block text-sm font-semibold text-slice-ink">
+            <label className={labelClass}>
               {dict.checkout.fields.fullName}
             </label>
             <input
@@ -163,16 +174,17 @@ export function CheckoutForm({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder={dict.checkout.placeholders.fullName}
-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
+              autoComplete="name"
+              className={inputClass}
             />
             {errors.fullName && (
-              <p className="mt-1 text-xs text-slice-red">{errors.fullName}</p>
+              <p className="mt-1 text-xs font-medium text-slice-red">{errors.fullName}</p>
             )}
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold text-slice-ink">
+              <label className={labelClass}>
                 {dict.checkout.fields.phone}
               </label>
               <input
@@ -180,14 +192,15 @@ export function CheckoutForm({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={dict.checkout.placeholders.phone}
-                className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
+                autoComplete="tel"
+                className={inputClass}
               />
               {errors.phone && (
-                <p className="mt-1 text-xs text-slice-red">{errors.phone}</p>
+                <p className="mt-1 text-xs font-medium text-slice-red">{errors.phone}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slice-ink">
+              <label className={labelClass}>
                 {dict.checkout.fields.email}
               </label>
               <input
@@ -195,22 +208,28 @@ export function CheckoutForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={dict.checkout.placeholders.email}
-                className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
+                autoComplete="email"
+                className={inputClass}
               />
               {errors.email && (
-                <p className="mt-1 text-xs text-slice-red">{errors.email}</p>
+                <p className="mt-1 text-xs font-medium text-slice-red">{errors.email}</p>
               )}
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="block text-sm font-semibold text-slice-ink">
+            <div className="flex items-end justify-between gap-2">
+              <label className={labelClass}>
                 {dict.checkout.fields.address}
               </label>
               <GeolocationButton
+                lang={lang}
                 dict={dict}
-                onLocated={(lat, lng) => setCoords({ lat, lng })}
+                onLocated={(location, locatedAddress) => {
+                  setCoords(location);
+                  setAddress(locatedAddress);
+                  setErrors((prev) => ({ ...prev, address: undefined }));
+                }}
               />
             </div>
             <input
@@ -218,21 +237,20 @@ export function CheckoutForm({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder={dict.checkout.placeholders.address}
-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
+              autoComplete="street-address"
+              className={inputClass}
             />
             {errors.address && (
-              <p className="mt-1 text-xs text-slice-red">{errors.address}</p>
+              <p className="mt-1 text-xs font-medium text-slice-red">{errors.address}</p>
             )}
-            <div className="mt-2">
-              <DirectionsLink
-                dict={dict}
-                destination={coords ?? (address.trim() || null)}
-              />
-            </div>
+            <RoutePreview
+              dict={dict}
+              destination={coords ?? (address.trim().length >= 4 ? address.trim() : null)}
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slice-ink">
+            <label className={labelClass}>
               {dict.checkout.fields.notes}
             </label>
             <textarea
@@ -240,12 +258,12 @@ export function CheckoutForm({
               onChange={(e) => setNotes(e.target.value)}
               placeholder={dict.checkout.placeholders.notes}
               rows={3}
-              className="mt-1.5 w-full rounded-xl border border-slice-ink/15 bg-slice-paper px-4 py-2.5 text-slice-ink outline-none focus:border-slice-red"
+              className="mt-1.5 w-full rounded-xl border border-transparent bg-slice-ink/[0.045] px-4 py-2.5 text-[15px] text-slice-ink outline-none transition placeholder:text-slice-ink/35 focus:border-slice-red/50 focus:bg-slice-card"
             />
           </div>
 
           {submitError && (
-            <p className="rounded-xl bg-slice-red/10 px-4 py-3 text-sm text-slice-red">
+            <p className="rounded-xl bg-slice-red/10 px-4 py-3 text-sm font-medium text-slice-red">
               {dict.checkout.submitError}
             </p>
           )}
@@ -253,36 +271,36 @@ export function CheckoutForm({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-full bg-slice-red px-6 py-3.5 text-sm font-bold text-slice-paper shadow-lg shadow-slice-red/20 transition-colors hover:bg-slice-red-deep disabled:opacity-60"
+            className="h-12 w-full rounded-2xl bg-slice-red text-[15px] font-semibold text-slice-paper shadow-lg shadow-slice-red/25 transition hover:bg-slice-red-deep active:scale-[0.98] disabled:opacity-50"
           >
             {submitting ? dict.checkout.submitting : dict.checkout.submit}
           </button>
         </form>
 
-        <aside className="h-fit rounded-2xl border border-slice-ink/10 bg-slice-paper p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slice-ink/60">
+        <aside className="hairline h-fit rounded-[28px] bg-slice-card p-5 shadow-card">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-slice-ink/40">
             {dict.checkout.orderSummary}
           </h2>
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-3 divide-y divide-slice-ink/[0.06]">
             {resolved.map((info, i) => (
-              <li key={i} className="flex justify-between gap-3 text-sm">
+              <li key={i} className="flex justify-between gap-3 py-2.5 text-sm">
                 <span className="text-slice-ink">
-                  {info.quantity}× {info.name}
+                  <span className="font-semibold">{info.quantity}×</span> {info.name}
                   {info.extraNames.length > 0 && (
                     <span className="block text-xs text-slice-ink/50">
-                      {info.extraNames.join(", ")}
+                      + {info.extraNames.join(", ")}
                     </span>
                   )}
                 </span>
-                <span className="whitespace-nowrap font-semibold text-slice-ink">
+                <span className="whitespace-nowrap font-semibold tabular-nums text-slice-ink">
                   {formatPrice(info.lineTotal)}
                 </span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex justify-between border-t border-slice-ink/10 pt-4 font-bold text-slice-red">
+          <div className="mt-2 flex justify-between border-t border-slice-ink/10 pt-3 text-[15px] font-bold text-slice-ink">
             <span>{dict.cart.subtotal}</span>
-            <span>{formatPrice(total)}</span>
+            <span className="tabular-nums">{formatPrice(total)}</span>
           </div>
         </aside>
       </div>

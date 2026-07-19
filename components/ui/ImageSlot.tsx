@@ -1,45 +1,46 @@
 import Image from "next/image";
-import { PizzaPlaceholderArt } from "@/components/ui/PizzaPlaceholderArt";
+import { FoodArt, type FoodArtKind } from "@/components/ui/FoodArt";
 
 type ImageSlotProps = {
   src?: string;
   alt: string;
-  shape?: "whole" | "slice";
+  art: FoodArtKind;
+  accent?: string;
   className?: string;
   sizes?: string;
-  priority?: boolean;
+  preload?: boolean;
 };
 
 /**
  * Renders a real photo (next/image) when `src` is given, otherwise falls
- * back to branded placeholder art — same sizing/aspect either way, so
- * dropping in real photography later requires no layout changes.
+ * back to the flat food illustration — same sizing either way, so dropping
+ * in real photography later requires no layout changes.
  */
 export function ImageSlot({
   src,
   alt,
-  shape = "whole",
+  art,
+  accent,
   className = "",
   sizes,
-  priority,
+  preload,
 }: ImageSlotProps) {
   return (
-    <div
-      className={`relative overflow-hidden bg-slice-paper ${className}`}
-    >
+    <div className={`relative overflow-hidden ${className}`}>
       {src ? (
         <Image
           src={src}
           alt={alt}
           fill
           sizes={sizes ?? "100vw"}
-          priority={priority}
+          preload={preload}
           className="object-cover"
         />
       ) : (
-        <PizzaPlaceholderArt
-          shape={shape}
-          className="absolute inset-0 h-full w-full p-4"
+        <FoodArt
+          kind={art}
+          accent={accent}
+          className="absolute inset-0 h-full w-full p-2"
         />
       )}
     </div>

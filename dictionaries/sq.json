@@ -1,54 +1,59 @@
 {
   "meta": {
-    "title": "Slice House — Shija që mbahet mend",
-    "description": "Pica artizanale, e bërë me pasion. Porosit online nga Slice House — pa regjistrim, pa pagesë online."
+    "title": "Slice House — Pica të bëra me dorë në Mitrovicë",
+    "description": "Pica të bëra me dorë në Mitrovicë. Porosit online — pa regjistrim, pa pagesë online."
   },
   "nav": {
     "offers": "Ofertat",
     "menu": "Menuja",
     "game": "Rrota e Fatit",
-    "contact": "Kontakti",
+    "contact": "Na Gjej",
     "cart": "Shporta"
   },
   "hero": {
-    "eyebrow": "Pica artizanale, e bërë me pasion",
+    "open": "Hapur çdo ditë 17:00 – 23:00",
     "title": "Shija që mbahet mend.",
-    "subtitle": "Përbërës të freskët çdo ditë, brumë i punuar me kujdes dhe vaj ulliri 100% natyral. Porosit online — ne bëjmë pjesën tjetër.",
+    "subtitle": "Pica të bëra me dorë, të nxehta nga furra në Mitrovicë.",
     "ctaPrimary": "Porosit Tani",
-    "ctaSecondary": "Shiko Menunë",
-    "badgeIngredients": "Përbërës të freskët çdo ditë",
-    "badgeDough": "Brumë i punuar me kujdes",
-    "badgeOil": "Vaj ulliri 100% natyral"
+    "ctaSecondary": "Shiko Menunë"
   },
   "offers": {
-    "heading": "Ofertat e Muajit",
-    "subheading": "Oferta të kufizuara në kohë — shijoji para se të mbarojnë.",
-    "empty": "Nuk ka oferta aktive për momentin. Kontrollo menunë tonë të plotë më poshtë!",
-    "addToOrder": "Shto në Porosi",
+    "heading": "Këtë Muaj",
+    "empty": "S'ka oferta për momentin — menuja e plotë është më poshtë.",
+    "addToOrder": "Shto",
     "until": "Deri më {date}"
   },
   "menu": {
     "heading": "Menuja",
-    "subheading": "E gjithë menuja jonë, direkt këtu — jo PDF, thjesht shto dhe porosit.",
     "categories": {
       "pica": "Pica",
       "pije": "Pije",
       "shtesa": "Shtesa"
     },
-    "addToCart": "Shto në Shportë",
-    "added": "U shtua!",
-    "extrasLabel": "Shtesa (opsionale)",
+    "addToCart": "Shto",
+    "added": "U shtua",
+    "extrasLabel": "Shtesa",
     "quantity": "Sasia",
-    "from": "nga"
+    "addForPrice": "Shto në Porosi · {price}",
+    "close": "Mbyll"
   },
   "wheel": {
     "heading": "Nuk di çfarë të zgjedhësh?",
-    "subheading": "Rrotullo Rrotën e Fatit dhe le fati të zgjedhë picën tënde të radhës.",
+    "subheading": "Rrotulloje rrotën — fati zgjedh picën.",
     "spinButton": "Rrotullo Rrotën",
-    "spinning": "Duke rrotulluar…",
-    "resultPrefix": "Fati zgjodhi:",
+    "spinning": "Duke u rrotulluar…",
+    "resultPrefix": "Fati zgjodhi",
     "addToOrder": "Shto në Porosi",
     "spinAgain": "Rrotullo Përsëri"
+  },
+  "contact": {
+    "heading": "Na Gjej",
+    "addressLabel": "Adresa",
+    "phoneLabel": "Telefoni",
+    "hoursLabel": "Orari",
+    "hoursValue": "17:00 – 23:00, çdo ditë",
+    "directions": "Merr Udhëzimet",
+    "mapTitle": "Slice House në hartë"
   },
   "cart": {
     "heading": "Shporta Jote",
@@ -56,14 +61,14 @@
     "browseMenu": "Shiko Menunë",
     "remove": "Hiq",
     "extras": "Shtesa",
-    "subtotal": "Nëntotali",
-    "checkout": "Vazhdo te Porosia",
-    "continueShopping": "Vazhdo Blerjen"
+    "subtotal": "Totali",
+    "checkout": "Porosit",
+    "continueShopping": "Vazhdo Porosinë"
   },
   "checkout": {
-    "heading": "Përfundo Porosinë",
-    "subheading": "Plotëso të dhënat e tua — do të të telefonojmë për konfirmim.",
-    "orderSummary": "Përmbledhja e Porosisë",
+    "heading": "Porosia Jote",
+    "subheading": "Do të të telefonojmë për konfirmim.",
+    "orderSummary": "Përmbledhja",
     "fields": {
       "fullName": "Emri i plotë",
       "phone": "Numri i telefonit",
@@ -79,17 +84,19 @@
       "notes": "Ndonjë kërkesë e veçantë?"
     },
     "useLocation": "Përdor lokacionin tim",
-    "locating": "Duke gjetur lokacionin…",
-    "locationSet": "Lokacioni u caktua ✓",
+    "locating": "Duke u gjetur…",
+    "locationSet": "Lokacioni u caktua",
     "locationError": "Nuk u gjend lokacioni. Shkruaj adresën manualisht.",
-    "previewRoute": "Shiko rrugën nga ne te ti",
+    "previewRoute": "Shiko rrugën",
+    "hideRoute": "Fshih rrugën",
+    "routeTitle": "Rruga nga Slice House deri te ti",
     "submit": "Dërgo Porosinë",
     "submitting": "Duke dërguar…",
-    "submitError": "Diçka shkoi keq. Provo përsëri ose na telefono direkt.",
+    "submitError": "Diçka shkoi keq. Provo përsëri ose na telefono.",
     "success": {
-      "title": "Porosia u pranua!",
-      "message": "Faleminderit! Do të të telefonojmë shpejt për të konfirmuar porosinë.",
-      "callUs": "Nëse ke pyetje, na telefono direkt:"
+      "title": "Porosia u pranua",
+      "message": "Faleminderit! Do të të telefonojmë shpejt për konfirmim.",
+      "callUs": "Pyetje? Na telefono:"
     },
     "errors": {
       "fullName": "Shkruaj emrin e plotë",
@@ -100,10 +107,6 @@
     }
   },
   "footer": {
-    "hours": "Orari",
-    "hoursValue": "17:00 – 23:00",
-    "callUs": "Na Telefono",
-    "address": "Adresa",
     "rights": "Të gjitha të drejtat e rezervuara."
   },
   "common": {

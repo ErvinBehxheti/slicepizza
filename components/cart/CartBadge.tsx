@@ -11,23 +11,23 @@ export function CartBadge({ lang, label }: { lang: string; label: string }) {
     <Link
       href={`/${lang}/cart`}
       aria-label={label}
-      className="relative flex items-center gap-2 rounded-full bg-slice-red px-4 py-2 text-sm font-semibold text-slice-paper transition-colors hover:bg-slice-red-deep"
+      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-slice-ink/[0.06] text-slice-ink transition-colors hover:bg-slice-ink/10"
     >
       <svg
         viewBox="0 0 24 24"
-        className="h-4 w-4"
+        className="h-[18px] w-[18px]"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         aria-hidden="true"
       >
-        <circle cx="9" cy="21" r="1" />
-        <circle cx="20" cy="21" r="1" />
-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+        <path d="M6 8h12l1.2 12.2a1.5 1.5 0 0 1-1.5 1.8H6.3a1.5 1.5 0 0 1-1.5-1.8Z" />
+        <path d="M9 10V6a3 3 0 0 1 6 0v4" />
       </svg>
-      <span className="hidden sm:inline">{label}</span>
       {showCount && (
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slice-cream px-1 text-xs font-bold text-slice-ink">
+        <span className="animate-pop absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slice-red px-1 text-[10px] font-bold text-slice-paper">
           {itemCount}
         </span>
       )}
